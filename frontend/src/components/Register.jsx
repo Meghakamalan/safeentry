@@ -1,29 +1,22 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-// Register component displays the registration form.
 function Register() {
-  // Store the user's name.
+  // user's name
   const [name, setName] = useState("");
-
-  // Store the user's email.
+  // user's email
   const [email, setEmail] = useState("");
-
-  // Store the user's password.
+  //user's password
   const [password, setPassword] = useState("");
-
-  // Store success or error messages.
+  // success or error messages.
   const [message, setMessage] = useState("");
-
   const [error, setError] = useState("");
-
   // Track whether registration is in progress.
   const [loading, setLoading] = useState(false);
-
   // Navigate to the login page after registration.
   const navigate = useNavigate();
 
-  // Run this function when the form is submitted.
+  // after the user submits the form, this function runs
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -32,17 +25,14 @@ function Register() {
     setLoading(true);
 
     try {
-      // Send the registration information to the backend.
+      // Send the registration information to the backend
       const response = await fetch(
         "http://localhost:5000/api/auth/register",
         {
           method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
+          headers: { "Content-Type": "application/json",
           },
-
-          // Send the form data as JSON.
+          // Send the form data as JSON
           body: JSON.stringify({
             name,
             email,
@@ -50,19 +40,18 @@ function Register() {
           }),
         }
       );
-
-      // Read the backend response.
+      // Read the backend response
       const data = await response.json();
 
-      // Display an error if registration fails.
+      // Display an error if registration fails
       if (!response.ok) {
         throw new Error(data.message || "Registration failed");
       }
 
-      // Display a success message.
+      // Display a success message
       setMessage("Registration successful! Please log in.");
 
-      // Navigate to the login page after a short delay.
+      // Navigate to the login page after a short delay
       setTimeout(() => {
         navigate("/login");
       }, 1500);
