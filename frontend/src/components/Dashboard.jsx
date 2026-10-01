@@ -13,12 +13,9 @@ function Dashboard({ user, onLogout }) {
 
       <main className="dashboard-content">
         <h2>Welcome, {user?.name}!</h2>
-
         <p>You have successfully logged in to SafeEntry.</p>
-
         <div className="dashboard-card">
           <h3>Your Account</h3>
-
           <p>
             <strong>Name:</strong> {user?.name}
           </p>

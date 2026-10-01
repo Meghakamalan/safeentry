@@ -1,6 +1,6 @@
-const jwt = require("jsonwebtoken");
+import jwt from "jsonwebtoken";
 
-const protect = (req, res, next) => {
+export const protect = (req, res, next) => {
   const token = req.cookies.token;
 
   if (!token) {
@@ -10,13 +10,8 @@ const protect = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
-
     next();
   } catch (error) {
     return res.status(401).json({
@@ -25,4 +20,4 @@ const protect = (req, res, next) => {
   }
 };
 
-module.exports = protect;
+export default protect;
