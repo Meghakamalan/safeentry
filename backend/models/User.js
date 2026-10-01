@@ -2,7 +2,11 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
+    first_name: {
+      type: String,
+      required: true,
+    },
+    last_name: {
       type: String,
       required: true,
     },
@@ -17,8 +21,8 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["resident", "guard", "admin"],
-      default: "resident",
+      enum: ["Resident", "Guard", "Admin"],
+      default: "Resident",
     },
   },
   { timestamps: true }

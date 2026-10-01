@@ -2,10 +2,17 @@ import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+// Helper for cookie options to maintain consistency across login & logout
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+};
+
 // Register
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { first_name, last_name, email, password, role } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -17,21 +24,25 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name,
+      first_name,
+      last_name,
       email,
       password: hashedPassword,
+      role: role || "resident", // Allows assigning guard or admin roles
     });
 
     res.status(201).json({
       message: "Registration Successful !",
       user: {
         id: user._id,
-        name: user.name,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
         role: user.role,
       },
     });
   } catch (error) {
+    console.error("Register Error:", error);
     res.status(500).json({
       message: "Server error",
     });
@@ -42,7 +53,9 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+
+    // Force password inclusion in case `select: false` is set on the schema
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(401).json({
@@ -61,14 +74,12 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 1000,
+      ...cookieOptions,
+      maxAge: 60 * 60 * 1000, // 1 hour
     });
 
     res.json({
@@ -81,6 +92,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Login Error:", error);
     res.status(500).json({
       message: "Server Error !",
     });
@@ -89,11 +101,7 @@ export const login = async (req, res) => {
 
 // Logout
 export const logout = (req, res) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  });
+  res.clearCookie("token", cookieOptions);
   res.json({
     message: "Logout Successful !",
   });
