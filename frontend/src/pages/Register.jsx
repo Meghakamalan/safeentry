@@ -145,7 +145,7 @@ const Register = () => {
                   onChange={onChange}
                   required
                 >
-                  <option value="">Select Unit</option>
+                  <option value="">Select Role</option>
                   <option value="Resident">Resident</option>
                   <option value="Guard">Guard</option>
                 </select>
