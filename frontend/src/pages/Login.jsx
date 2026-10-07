@@ -36,17 +36,22 @@ const Login = () => {
       const response = await axios.post(`${API_URL}/api/auth/login`, {
         ...formData,
         email: formData.email.trim().toLowerCase(),
-      });
-      if(response.data.user.role === "Resident") {
-      navigate("/resident");
-      }
+      },
+      {withCredentials: true}
+    );
 
-      if(response.data.user.role === "Admin") {
-        navigate("/admin");
-      }
-      if(response.data.user.role === "Guard") {
-        navigate("/guard");
-      }
+    // Save user details to localStorage for access across components
+    localStorage.setItem("user", JSON.stringify(response.data.user));
+
+    const role = response.data.user.role;
+    
+    if (role === "Resident") {
+      navigate("/resident");
+    } else if (role === "Admin") {
+      navigate("/admin");
+    } else if (role === "Guard") {
+      navigate("/guard");
+    }
     } catch (err) {
       console.error(err);
 
