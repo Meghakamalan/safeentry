@@ -1,31 +1,19 @@
-import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 
-const userSchema = new mongoose.Schema(
-  {
-    first_name: {
-      type: String,
-      required: true,
-    },
-    last_name: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    role: {
-      type: String,
-      enum: ["Resident", "Guard", "Admin"],
-      default: "resident",
-    },
-  },
-  { timestamps: true }
-);
+export const authenticateUser = (req, res, next) => {
+  // Read token from HTTP-only cookie
+  const token = req.cookies.token;
 
-export default mongoose.model("User", userSchema);
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized access, please login" });
+  }
+
+  try {
+    // Verify JWT token signature
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Contains id and role
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: "Invalid or expired token" });
+  }
+};

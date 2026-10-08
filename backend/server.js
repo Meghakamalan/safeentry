@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import visitorRoutes from "./routes/visitorRoutes.js";
 
 import authRoutes from "./routes/authRoutes.js";
 
@@ -31,6 +32,8 @@ app.use(
     credentials: true,
   }),
 );
+// using visitor mangement endpoint routes for visitor management related operations
+app.use("/api/visitors", visitorRoutes);
 
 // Middleware
 app.use(express.json());
