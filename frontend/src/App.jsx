@@ -5,6 +5,7 @@ import Layout from "./componets/Layout";
 import ResidentDashBoard from "./pages/ResidentDashBoard";
 import GuardDashboard from "./pages/GuardDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import Visitors from "./pages/Visitors";
 
 function App() {
   return (
@@ -20,7 +21,7 @@ function App() {
           <Route path="/guard" element={<GuardDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/maintenance" element={<ResidentDashBoard />} />
-          <Route path="/visitors" element={<ResidentDashBoard />} />
+          <Route path="/visitors" element={<Visitors />} />
           <Route path="/announcements" element={<ResidentDashBoard />} />
           <Route path="/deliveries" element={<ResidentDashBoard />} />
         </Route>

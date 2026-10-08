@@ -26,7 +26,7 @@ const Sidebar = () => {
       style={{
         width: "240px",
         minHeight: "100vh",
-        backgroundColor: "#dce7f0", // Light blue matching your design UI
+        backgroundColor: "#dce7f0", // Light blue 
       }}
     >
       {/* Top Section: App Title & Navigation Links */}
