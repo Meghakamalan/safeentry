@@ -44,6 +44,18 @@ const initialForm = {
         setEditingId(null);
         setShowForm(true);
     };
+//form for editing existing visitor
+const handleEdit = (visitor) => {
+    setFormData({
+        first_name: visitor.first_name,
+        last_name: visitor.last_name,
+        expected_date: visitor.expected_date,
+        expected_time: visitor.expected_time,
+        vehicle_info: visitor.vehicle_info,
+    });
+    setEditingId(visitor._id);
+    setShowForm(true);
+};
 
 //submit handler
 const onSubmit = async (e) => {
@@ -51,12 +63,19 @@ const onSubmit = async (e) => {
     setLoading(true);
     setError(null);
     try {
-        // create new visitor
-        await axios.post(`${API_URL}/api/visitors`, formData, { withCredentials: true });
-    
+        if (editingId) {
+            // Update existing visitor
+            await axios.put(`${API_URL}/api/visitors/${editingId}`, formData, { withCredentials: true });
+        }
+        else {
+            // create new visitor
+            await axios.post(`${API_URL}/api/visitors`, formData, { withCredentials: true });
+        }
+
     await fetchVisitors(); // Refresh the list after adding
     setShowForm(false);
     setFormData(initialForm);
+    setEditingId(null);
     }catch (error) {
         console.error("Error creating visitor:", error);
         setError("Failed to create visitor. Please try again.");
@@ -64,6 +83,14 @@ const onSubmit = async (e) => {
         setLoading(false);
     }
    };
+
+//    // Helper badge styling based on guard status
+//   const getStatusBadge = (status) => {
+//     if (status === "Checked-In") return "bg-success text-white";
+//     if (status === "Checked-Out") return "bg-secondary text-white";
+//     return "bg-light text-dark border"; // Default Pending
+//   };
+
 
 return (
     <div className="container-fluid py-2">
@@ -216,7 +243,7 @@ return (
                         <button
                           className="btn btn-sm text-white px-3"
                           style={{ backgroundColor: "#5f6368" }}
-                        //   onClick={() => handleEdit(visitor)}
+                          onClick={() => handleEdit(visitor)}
                         >
                           Edit
                         </button>

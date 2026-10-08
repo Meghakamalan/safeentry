@@ -32,8 +32,6 @@ app.use(
     credentials: true,
   }),
 );
-// using visitor mangement endpoint routes for visitor management related operations
-app.use("/api/visitors", visitorRoutes);
 
 // Middleware
 app.use(express.json());
@@ -45,8 +43,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
+
+//  Routes
 app.use("/api/auth", authRoutes);
+// Visitor routes
+app.use("/api/visitors", visitorRoutes);
 
 const PORT = process.env.PORT;
 
