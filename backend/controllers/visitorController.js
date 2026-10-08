@@ -64,3 +64,19 @@ export const updateVisitor = async (req, res) => {
 
     }
 };
+
+//DELETE a visitor request
+export const deleteVisitor = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deletedVisitor = await Visitor.findOneAndDelete({ _id: id, resident_id: req.user.id });
+        if (!deletedVisitor) {
+            return res.status(404).json({ message: "Visitor record not found" });
+        }
+        res.json({
+            message: "Visitor deleted successfully" });
+    } catch (error) {
+        console.error("Delete Visitor Error:", error);
+        res.status(500).json({ message: "Error deleting visitor" });
+    }
+};
