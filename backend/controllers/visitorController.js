@@ -33,3 +33,34 @@ export const createVisitor = async (req, res) => {
         res.status(500).json({ message: "Error creating visitor" });
     }
 };
+
+//PUT Update an existing visitor record
+export const updateVisitor = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { first_name, last_name, expected_date, expected_time, vehicle_info } = req.body;
+
+        //verify that the visitor belongs to the logged-in resident
+        const visitor = await Visitor.findOne({ _id: id, resident_id: req.user.id });
+        if (!visitor) {
+            return res.status(404).json({ message: "Visitor record not found" });
+        }
+
+        visitor.first_name = first_name || visitor.first_name;
+        visitor.last_name = last_name || visitor.last_name;
+        visitor.expected_date = expected_date || visitor.expected_date;
+        visitor.expected_time = expected_time || visitor.expected_time;
+        visitor.vehicle_info = vehicle_info || visitor.vehicle_info;
+
+        await visitor.save();
+
+        res.json({
+            message: "Visitor updated successfully",
+            visitor,
+        });
+    } catch (error) {
+        console.error("Update Visitor Error:", error);
+        res.status(500).json({ message: "Error updating visitor" });
+
+    }
+};
