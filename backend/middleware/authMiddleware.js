@@ -5,7 +5,7 @@ export const authenticateUser = (req, res, next) => {
   const token = req.cookies.token;
 
   if (!token) {
-    return res.status(401).json({ message: "Unauthorized access, please login" });
+    return res.status(401).json({ message: "Authentication required. Please log in again." });
   }
 
   try {
@@ -14,6 +14,7 @@ export const authenticateUser = (req, res, next) => {
     req.user = decoded; // Contains id and role
     next();
   } catch (error) {
+    console.error("JWT Verification Error:", error);
     return res.status(403).json({ message: "Invalid or expired token" });
   }
 };

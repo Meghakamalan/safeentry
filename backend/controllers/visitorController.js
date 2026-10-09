@@ -13,7 +13,17 @@ export const getVisitors = async (req, res) => {
 //POST Create a new visitor record
 export const createVisitor = async (req, res) => {
     try {
+        //check if user id exist from the JWT token
+        const residentId = req.user?.id || req.user?._id; // Fallback to _id if id is not present
+        if (!residentId) {
+            return res.status(401).json({ message: "User not authenticated" });
+        }
+
         const { first_name, last_name, expected_date, expected_time, vehicle_info } = req.body;
+        //validate required fields
+        if (!first_name || !last_name || !expected_date || !expected_time) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
         const newVisitor = await Visitor.create({
             resident_id: req.user.id,
             first_name,

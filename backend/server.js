@@ -24,12 +24,18 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like Postman or mobile apps) or listed origins
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
+      if(!origin) return callback(null, true);
+      if(allowedOrigins.indexOf(origin) === -1) {
+        return callback(null,true);
       }
-      return callback(null, true); // Permissive during local development
+      return callback(null, true);
     },
-    credentials: true,
+  //     if (!origin || allowedOrigins.includes(origin)) {
+  //       return callback(null, true);
+  //     }
+  //     return callback(null, true); // Permissive during local development
+  //   },
+    credentials: true, // Allow cookies to be sent with requests
   }),
 );
 

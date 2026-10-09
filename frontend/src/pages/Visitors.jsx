@@ -57,7 +57,20 @@ const handleEdit = (visitor) => {
     setShowForm(true);
 };
 
-//submit handler
+//DELETE visitor 
+const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this visitor?")) return;
+    try {
+        await axios.delete(`${API_URL}/api/visitors/${id}`, { withCredentials: true , });
+        // Refresh the list after deletion
+        setVisitors(visitors.filter((v) => v._id !== id));
+    } catch (error) {
+        console.error("Failed to delete visitor:", error);
+        // setError("Failed to delete visitor. Please try again.");
+        alert("Failed to delete visitor. Please try again.");
+    }
+}
+//submit handler for creating or updating visitor
 const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -78,18 +91,21 @@ const onSubmit = async (e) => {
     setEditingId(null);
     }catch (error) {
         console.error("Error creating visitor:", error);
-        setError("Failed to create visitor. Please try again.");
+        //display error message to user
+
+        setError(error.response?.data?.message || "Failed to create visitor. Please try again.");
+        
     } finally {
         setLoading(false);
     }
    };
 
-//    // Helper badge styling based on guard status
-//   const getStatusBadge = (status) => {
-//     if (status === "Checked-In") return "bg-success text-white";
-//     if (status === "Checked-Out") return "bg-secondary text-white";
-//     return "bg-light text-dark border"; // Default Pending
-//   };
+   // Helper badge styling based on guard status
+  const getStatusBadge = (status) => {
+    if (status === "Checked-In") return "bg-success text-white";
+    if (status === "Checked-Out") return "bg-secondary text-white";
+    return "bg-light text-dark border"; // Default Pending
+  };
 
 
 return (
@@ -250,7 +266,7 @@ return (
                         <button
                           className="btn btn-sm text-white px-3"
                           style={{ backgroundColor: "#ca5c5c" }}
-                        //   onClick={() => handleDelete(visitor._id)}
+                          onClick={() => handleDelete(visitor._id)}
                         >
                           Delete
                         </button>
