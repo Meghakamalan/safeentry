@@ -29,8 +29,8 @@ const visitorSchema = new mangoose.Schema(
         },
         status: {
             type: String,
-            enum: ["pending", "CheckedIn", "CheckedOut", "Cancelled"],
-            default: "pending", //default status
+            enum: ["Pending", "Checked-In", "Checked-Out", "pending", "checked-in", "checked-out"],
+            default: "Pending", //default status
         },
 
     },
