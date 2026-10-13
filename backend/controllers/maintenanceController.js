@@ -39,7 +39,34 @@ export const createMaintenanceRequest = async(req,res)=>{
     }catch(error){
         console.error("Create Maintenance Error:", error);
         res.status(500).json({message: error.message || "Error creating maintenance request"});
-
+    }
 
     };
-}
+
+    //PUT Update an existing maintenance request
+    export const updateMaintenanceRequest = async (req, res) => {
+        try {
+            const { id } = req.params;
+            const residentId = req.user?.id || req.user?._id;
+            const { issue_type, description, request_date } = req.body;
+
+            const ticket = await Maintenance.findOne({ _id: id, resident_id: residentId });
+            if (!ticket) {
+                return res.status(404).json({ message: "Maintenance request not found" });
+            }
+            
+            ticket.issue_type = issue_type || ticket.issue_type;
+            ticket.description = description || ticket.description;
+            if (request_date) {
+                ticket.request_date = new Date(request_date);
+            }
+            await ticket.save();
+            res.json({
+                message: "Maintenance request updated successfully",
+                request: ticket,
+            });
+        } catch (error) {
+            console.error("Update Maintenance Error:", error);
+            res.status(500).json({ message: error.message || "Error updating maintenance request" });
+        }
+    };

@@ -44,16 +44,35 @@ const initialForm = {
         setShowForm(true);
     };
         
+    //edit existing ticket
+    const handleEdit = (ticket) => {
+        const formattedDate = ticket.request_date ? new Date(ticket.request_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+        setFormData({
+            issue_type: ticket.issue_type,
+            description: ticket.description,
+            request_date: formattedDate,
+        });
+        setEditingId(ticket._id);
+        setShowForm(true);
+    };
+
     //submit form data to backend
     const onSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
     try{
-        await axios.post(`${API_URL}/api/maintenance`, formData, { withCredentials: true });
+        if (editingId) {
+            // Update existing ticket
+            await axios.put(`${API_URL}/api/maintenance/${editingId}`, formData, { withCredentials: true });
+        } else {
+            // Create new ticket
+            await axios.post(`${API_URL}/api/maintenance`, formData, { withCredentials: true });
+        }
         await fetchMaintenance();
         setShowForm(false);
         setFormData(initialForm);
+        setEditingId(null);
     } catch (err) {
       console.error("Error submitting maintenance form:", err);
       setError(
@@ -210,6 +229,7 @@ const initialForm = {
                         <button
                           className="btn btn-sm text-white px-3"
                           style={{ backgroundColor: "#5f6368" }}
+                          onClick={() => handleEdit(ticket)}
                         >
                           Edit
                         </button>
