@@ -56,6 +56,19 @@ const initialForm = {
         setShowForm(true);
     };
 
+    //delete existing ticket
+    const handleDelete = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this maintenance request?")) return;
+        try {
+            await axios.delete(`${API_URL}/api/maintenance/${id}`, { withCredentials: true });
+           setRequests(requests.filter((ticket) => ticket._id !== id));
+        } catch (error) {
+            console.error("Failed to delete maintenance request:", error);
+            // setError("Failed to delete maintenance request. Please try again.");
+            alert("Failed to delete maintenance request. Please try again.");
+        }
+    };
+
     //submit form data to backend
     const onSubmit = async (e) => {
         e.preventDefault();
@@ -236,6 +249,7 @@ const initialForm = {
                         <button
                           className="btn btn-sm text-white px-3"
                           style={{ backgroundColor: "#ca5c5c" }}
+                          onClick={() => handleDelete(ticket._id)}
                         >
                           Delete
                         </button>

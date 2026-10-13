@@ -1,5 +1,5 @@
 import express from 'express';
-import { getMaintenanceRequest, createMaintenanceRequest, updateMaintenanceRequest } from '../controllers/maintenanceController.js';
+import { getMaintenanceRequest, createMaintenanceRequest, updateMaintenanceRequest, deleteMaintenanceRequest } from '../controllers/maintenanceController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -12,5 +12,8 @@ router.post('/', authenticateUser, createMaintenanceRequest);
 
 // PUT Update an existing maintenance request
 router.put('/:id', authenticateUser, updateMaintenanceRequest);
+
+// DELETE Delete an existing maintenance request
+router.delete('/:id', authenticateUser, deleteMaintenanceRequest);
 
 export default router;

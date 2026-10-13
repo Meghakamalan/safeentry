@@ -70,3 +70,19 @@ export const createMaintenanceRequest = async(req,res)=>{
             res.status(500).json({ message: error.message || "Error updating maintenance request" });
         }
     };
+
+    //Delete an existing maintenance request
+    export const deleteMaintenanceRequest = async (req, res) => {
+        try {
+            const { id } = req.params;
+            const residentId = req.user?.id || req.user?._id;
+            const deletedTicket = await Maintenance.findOneAndDelete({ _id: id, resident_id: residentId });
+            if (!deletedTicket) {
+                return res.status(404).json({ message: "Maintenance request not found" });
+            }
+            res.json({ message: "Maintenance request deleted successfully" });
+        } catch (error) {
+            console.error("Delete Maintenance Error:", error);
+            res.status(500).json({ message: error.message || "Error deleting maintenance request" });
+        }
+    };
