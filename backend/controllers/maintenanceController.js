@@ -24,7 +24,7 @@ export const createMaintenanceRequest = async(req,res)=>{
         if(!issue_type || !description){
             return res.status(400).json({message: "Issue type and description are required"});
         }
-        const newTicket = new Maintenance.create({
+        const newTicket = await Maintenance.create({
             resident_id: residentId,
             issue_type,
             description,

@@ -6,6 +6,7 @@ import ResidentDashBoard from "./pages/ResidentDashBoard";
 import GuardDashboard from "./pages/GuardDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Visitors from "./pages/Visitors";
+import Maintenance from "./pages/Maintenance";
 
 function App() {
   return (
@@ -20,7 +21,7 @@ function App() {
           <Route path="/resident" element={<ResidentDashBoard />} />
           <Route path="/guard" element={<GuardDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/maintenance" element={<ResidentDashBoard />} />
+          <Route path="/maintenance" element={<Maintenance />} />
           <Route path="/visitors" element={<Visitors />} />
           <Route path="/announcements" element={<ResidentDashBoard />} />
           <Route path="/deliveries" element={<ResidentDashBoard />} />
