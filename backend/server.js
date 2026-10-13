@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import visitorRoutes from "./routes/visitorRoutes.js";
+import maintenanceRoutes from "./routes/maintenanceRoutes.js";
 
 import authRoutes from "./routes/authRoutes.js";
 
@@ -54,6 +55,9 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 // Visitor routes
 app.use("/api/visitors", visitorRoutes);
+
+// Maintenance routes
+app.use("/api/maintenance", maintenanceRoutes);
 
 const PORT = process.env.PORT;
 

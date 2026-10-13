@@ -15,9 +15,9 @@ const maintenanceSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
-        date: {
-            type: String,//formated date string
-            required: true,
+        request_date: {
+            type: Date,
+            default: Date.now,
         },
         status: {
             type: String,
