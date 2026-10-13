@@ -16,7 +16,7 @@ const visitorSchema = new mangoose.Schema(
             required: true,
         },
         expected_date: {
-            type: String,//formated date atring
+            type: Date,
             required: true,
         },
         expected_time: {

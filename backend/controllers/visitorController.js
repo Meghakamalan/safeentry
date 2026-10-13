@@ -15,6 +15,8 @@ export const createVisitor = async (req, res) => {
     try {
         //check if user id exist from the JWT token
         const residentId = req.user?.id || req.user?._id; // Fallback to _id if id is not present
+        console.log("Creating visitor for Resident ID:", residentId); // Add this log
+        console.log("Request Body:", req.body); // Add this log
         if (!residentId) {
             return res.status(401).json({ message: "User not authenticated" });
         }
@@ -24,15 +26,18 @@ export const createVisitor = async (req, res) => {
         if (!first_name || !last_name || !expected_date || !expected_time) {
             return res.status(400).json({ message: "All fields are required" });
         }
-        const newVisitor = await Visitor.create({
-            resident_id: req.user.id,
+        const newVisitor = new Visitor({
+            resident_id: residentId,
             first_name,
             last_name,
-            expected_date,
+            expected_date : new Date(expected_date),
             expected_time,
             vehicle_info,
             status: "Pending",// Default status
         });
+
+        await newVisitor.save();
+        console.log("Visitor saved successfully:", newVisitor); // Add this log 
 
         res.status(201).json({
             message: "Visitor created successfully",
@@ -58,9 +63,11 @@ export const updateVisitor = async (req, res) => {
 
         visitor.first_name = first_name || visitor.first_name;
         visitor.last_name = last_name || visitor.last_name;
-        visitor.expected_date = expected_date || visitor.expected_date;
+        if (expected_date) {
+            visitor.expected_date = new Date(expected_date);
+        }
         visitor.expected_time = expected_time || visitor.expected_time;
-        visitor.vehicle_info = vehicle_info || visitor.vehicle_info;
+        visitor.vehicle_info = vehicle_info!==undefined ? vehicle_info : visitor.vehicle_info;
 
         await visitor.save();
 

@@ -6,8 +6,8 @@ const API_URL = import.meta.env.VITE_API_URL;
 const initialForm = {
     first_name: "",
     last_name: "",
-    expected_date: "",
-    expected_time: "",
+    expected_date: new Date().toISOString().split("T")[0], // Default to today's date in YYYY-MM-DD format
+    expected_time: "10:00",
     vehicle_info: "",
   };
   const Visitors = () => {
@@ -46,10 +46,15 @@ const initialForm = {
     };
 //form for editing existing visitor
 const handleEdit = (visitor) => {
+  // Safely extract YYYY-MM-DD from the stored Date object
+  const formattedDate = visitor.expected_date
+    ? new Date(visitor.expected_date).toISOString().split("T")[0]
+    : new Date().toISOString().split("T")[0];
+
     setFormData({
         first_name: visitor.first_name,
         last_name: visitor.last_name,
-        expected_date: visitor.expected_date,
+        expected_date: formattedDate,
         expected_time: visitor.expected_time,
         vehicle_info: visitor.vehicle_info,
     });
@@ -99,6 +104,17 @@ const onSubmit = async (e) => {
         setLoading(false);
     }
    };
+
+   // Format Date for table display (e.g., "20-Oct-2026")
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return "";
+    const dateObj = new Date(dateString);
+    return dateObj.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
    // Helper badge styling based on guard status
   const getStatusBadge = (status) => {
@@ -162,10 +178,10 @@ return (
                 <div className="col-12">
                   <label className="form-label fw-semibold">Expected Date</label>
                   <input
-                    type="text"
+                    type="Date"
                     name="expected_date"
                     className="form-control"
-                    placeholder="e.g. 28-Oct-2026"
+                   
                     value={formData.expected_date}
                     onChange={onChange}
                     required
@@ -175,10 +191,10 @@ return (
                 <div className="col-12">
                   <label className="form-label fw-semibold">Expected Time</label>
                   <input
-                    type="text"
+                    type="time"
                     name="expected_time"
                     className="form-control"
-                    placeholder="e.g. 10:00 AM"
+                   
                     value={formData.expected_time}
                     onChange={onChange}
                     required
@@ -246,7 +262,7 @@ return (
                 visitors.map((visitor) => (
                   <tr key={visitor._id}>
                     <td>{`${visitor.first_name} ${visitor.last_name}`}</td>
-                    <td>{visitor.expected_date}</td>
+                    <td>{formatDateDisplay(visitor.expected_date)}</td>
                     <td>{visitor.expected_time}</td>
                     <td style={{ whiteSpace: "pre-line" }}>{visitor.vehicle_info}</td>
                     <td>
@@ -275,6 +291,7 @@ return (
                   </tr>
                 ))
               )}
+
             </tbody>
           </table>
         </div>
