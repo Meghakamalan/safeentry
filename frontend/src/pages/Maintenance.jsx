@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { getUserRole } from "../Auth";
@@ -10,13 +11,16 @@ const initialForm = {
     request_date: new Date().toISOString().split("T")[0],
 };
 
-const Maintenance = () => {
+const statusOptions = ["Review", "Assign", "Resolved"];
+
+export default function Maintenance() {
     const [requests, setRequests] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState(initialForm);
     const [editingId, setEditingId] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
 
     const userRole = String(getUserRole() || "").toLowerCase();
 
@@ -24,10 +28,11 @@ const Maintenance = () => {
     const isAdmin = userRole === "admin";
     const isGuard = userRole === "guard";
 
-    // Fetch requests based on the user's role
+    // Load maintenance requests
     const fetchMaintenance = useCallback(async () => {
         try {
-            setError(null);
+            setLoading(true);
+            setError("");
 
             const endpoint = isAdmin
                 ? `${API_URL}/api/maintenance/allMaintenance`
@@ -37,103 +42,105 @@ const Maintenance = () => {
                 withCredentials: true,
             });
 
-            setRequests(response.data);
+            const data = response.data;
 
-            console.log("Maintenance requests fetched:", response.data);
+            const maintenanceRequests = Array.isArray(data)
+                ? data
+                : data.requests || data.maintenanceRequests || [];
+
+            setRequests(maintenanceRequests);
         } catch (error) {
-            console.error(
-                "Error fetching maintenance requests:",
-                error.response?.status,
-                error.response?.data || error.message
-            );
+            console.error("Error fetching maintenance requests:", error);
 
-            if (error.response?.status === 401) {
-                setError("Authentication required. Please log in again.");
-            } else if (error.response?.status === 403) {
-                setError("You do not have permission to view these requests.");
-            } else {
-                setError("Failed to fetch maintenance requests.");
-            }
+            setError(
+                error.response?.data?.message ||
+                    "Failed to load maintenance requests. Please try again."
+            );
+        } finally {
+            setLoading(false);
         }
     }, [isAdmin]);
 
-    // Fetch requests when the component loads or role-dependent callback changes
     useEffect(() => {
         fetchMaintenance();
     }, [fetchMaintenance]);
 
-    // Handle form inputs
-    const onChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value,
-        });
-    };
-
-    // Open form for creating a new request
+    // Open a blank form for a new request
     const handleAddNew = () => {
+        if (!isResident) return;
+
         setFormData({
             ...initialForm,
             request_date: new Date().toISOString().split("T")[0],
         });
 
         setEditingId(null);
-        setError(null);
+        setError("");
         setShowForm(true);
     };
 
-    // Edit an existing request
+    // Open a request for editing by a Resident
     const handleEdit = (ticket) => {
-        const formattedDate = ticket.request_date
-            ? new Date(ticket.request_date).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0];
+        if (!isResident) return;
 
         setFormData({
-            issue_type: ticket.issue_type,
-            description: ticket.description,
-            request_date: formattedDate,
+            issue_type: ticket.issue_type || "Door Latch Problem",
+            description: ticket.description || "",
+            request_date: ticket.request_date
+                ? String(ticket.request_date).split("T")[0]
+                : new Date().toISOString().split("T")[0],
         });
 
         setEditingId(ticket._id);
-        setError(null);
+        setError("");
         setShowForm(true);
     };
 
-    // Delete a request
-    const handleDelete = async (id) => {
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this maintenance request?"
-        );
+    // Open details in read-only mode for an Admin
+    const handleView = (ticket) => {
+        if (!isAdmin) return;
 
-        if (!confirmed) return;
+        setFormData({
+            issue_type: ticket.issue_type || "Door Latch Problem",
+            description: ticket.description || "",
+            request_date: ticket.request_date
+                ? String(ticket.request_date).split("T")[0]
+                : "",
+        });
 
-        try {
-            setError(null);
-
-            await axios.delete(
-                `${API_URL}/api/maintenance/${id}`,
-                { withCredentials: true }
-            );
-
-            await fetchMaintenance();
-        } catch (error) {
-            console.error("Failed to delete maintenance request:", error);
-
-            setError(
-                error.response?.data?.message ||
-                "Failed to delete maintenance request."
-            );
-        }
+        setEditingId(null);
+        setError("");
+        setShowForm(true);
     };
 
-    // Submit a new request or update an existing one
-    const onSubmit = async (e) => {
-        e.preventDefault();
+    // Close the form and return to the maintenance list
+    const handleCloseForm = () => {
+        setShowForm(false);
+        setEditingId(null);
+        setFormData(initialForm);
+        setError("");
+    };
 
-        setLoading(true);
-        setError(null);
+    // Update form fields
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+
+        setFormData((previousData) => ({
+            ...previousData,
+            [name]: value,
+        }));
+    };
+
+    // Create or update a maintenance request
+    const onSubmit = async (event) => {
+        event.preventDefault();
+
+        if (!isResident) return;
 
         try {
+            setSaving(true);
+            setError("");
+
             if (editingId) {
                 await axios.put(
                     `${API_URL}/api/maintenance/${editingId}`,
@@ -148,39 +155,77 @@ const Maintenance = () => {
                 );
             }
 
+            handleCloseForm();
             await fetchMaintenance();
-
-            setShowForm(false);
-            setFormData(initialForm);
-            setEditingId(null);
         } catch (error) {
-            console.error("Error submitting maintenance form:", error);
+            console.error("Error saving maintenance request:", error);
 
             setError(
                 error.response?.data?.message ||
-                "Failed to submit request. Please try again."
+                    "Failed to save the maintenance request."
             );
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
-    // Format date for display
-    const formatDateDisplay = (dateString) => {
-        if (!dateString) return "";
+    // Delete a maintenance request
+    const handleDelete = async (id) => {
+        if (!isResident && !isAdmin) return;
 
-        const dateObj = new Date(dateString);
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this maintenance request?"
+        );
 
-        return dateObj.toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        });
+        if (!confirmed) return;
+
+        try {
+            setError("");
+
+            await axios.delete(`${API_URL}/api/maintenance/${id}`, {
+                withCredentials: true,
+            });
+
+            await fetchMaintenance();
+        } catch (error) {
+            console.error("Error deleting maintenance request:", error);
+
+            setError(
+                error.response?.data?.message ||
+                    "Failed to delete the maintenance request."
+            );
+        }
     };
 
-    // Get Bootstrap status badge
+    // Admin can update only the request status
+    const handleStatusChange = async (id, status) => {
+        if (!isAdmin) return;
+
+        try {
+            setError("");
+
+            await axios.put(
+                `${API_URL}/api/maintenance/${id}`,
+                { status },
+                { withCredentials: true }
+            );
+
+            await fetchMaintenance();
+        } catch (error) {
+            console.error("Error updating maintenance status:", error);
+
+            setError(
+                error.response?.data?.message ||
+                    "Failed to update the maintenance status."
+            );
+        }
+    };
+
+    // Status badge colours
     const getStatusBadge = (status) => {
-        const normalizedStatus = String(status || "").toLowerCase();
+        const normalizedStatus = String(status || "")
+            .trim()
+            .toLowerCase();
 
         if (
             normalizedStatus === "resolved" ||
@@ -189,266 +234,512 @@ const Maintenance = () => {
             return "bg-success text-white";
         }
 
-        if (normalizedStatus === "in progress") {
+        if (
+            normalizedStatus === "assign" ||
+            normalizedStatus === "assigned" ||
+            normalizedStatus === "in progress"
+        ) {
             return "bg-primary text-white";
         }
 
-        if (
-            normalizedStatus === "closed" ||
-            normalizedStatus === "rejected"
-        ) {
+        if (normalizedStatus === "rejected" ||
+            normalizedStatus === "closed") {
             return "bg-secondary text-white";
         }
 
         return "bg-warning text-dark";
     };
 
+    // Match existing status values to the dropdown options
+    const getDropdownStatus = (status) => {
+        const normalizedStatus = String(status || "")
+            .trim()
+            .toLowerCase();
+
+        if (
+            normalizedStatus === "resolved" ||
+            normalizedStatus === "completed"
+        ) {
+            return "Resolved";
+        }
+
+        if (
+            normalizedStatus === "assign" ||
+            normalizedStatus === "assigned" ||
+            normalizedStatus === "in progress"
+        ) {
+            return "Assign";
+        }
+
+        return "Review";
+    };
+
+    // Format dates for display
+    const formatDate = (date) => {
+        if (!date) return "—";
+
+        const parsedDate = new Date(date);
+
+        if (Number.isNaN(parsedDate.getTime())) {
+            return String(date);
+        }
+
+        return parsedDate.toLocaleDateString();
+    };
+
     return (
         <div className="container-fluid py-2">
-            {/* Header */}
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h1
-                    className="h3 fw-bold"
-                    style={{ color: "#1f3a52" }}
-                >
-                    {showForm
-                        ? editingId
-                            ? "Edit Maintenance Request"
-                            : "New Maintenance Request"
-                        : "Maintenance"}
-                </h1>
+            {/* Page heading */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div>
+                    <h2 className="mb-1">
+                        {showForm
+                            ? isAdmin
+                                ? "Maintenance Request Details"
+                                : editingId
+                                  ? "Edit Maintenance Request"
+                                  : "Create Maintenance Request"
+                            : "Maintenance"}
+                    </h2>
+
+                    <p className="text-muted mb-0">
+                        {showForm && isAdmin &&
+                            "View the details of this maintenance request."}
+
+                        {showForm && isResident && editingId &&
+                            "Update your maintenance request."}
+
+                        {showForm && isResident && !editingId &&
+                            "Submit a new maintenance request."}
+
+                        {!showForm && isResident &&
+                            "Submit and manage your maintenance requests."}
+
+                        {!showForm && isAdmin &&
+                            "View requests, update statuses, and manage maintenance records."}
+
+                        {!showForm && isGuard &&
+                            "View maintenance requests and their current status."}
+                    </p>
+                </div>
 
                 {!showForm && isResident && (
                     <button
+                        type="button"
+                        className="btn text-white"
+                        style={{ backgroundColor: "#4155c7" }}
                         onClick={handleAddNew}
-                        className="btn text-white px-4 py-2"
-                        style={{
-                            backgroundColor: "#2b63d9",
-                            borderRadius: "6px",
-                        }}
                     >
                         + New Request
                     </button>
                 )}
             </div>
 
+            {/* Error message */}
             {error && (
                 <div className="alert alert-danger" role="alert">
                     {error}
+
+                    <button
+                        type="button"
+                        className="btn-close float-end"
+                        aria-label="Close error message"
+                        onClick={() => setError("")}
+                    />
                 </div>
             )}
 
-            {/* Form */}
-            {showForm ? (
-                <div className="d-flex justify-content-center mt-3">
-                    <div className="w-100" style={{ maxWidth: "600px" }}>
+            {/* Form or details view */}
+            {showForm && (
+                <div
+                    className="card shadow-sm mx-auto mb-4"
+                    style={{ maxWidth: "600px" }}
+                >
+                    <div
+                        className="card-header text-white"
+                        style={{ backgroundColor: "#4155c7" }}
+                    >
+                        <h5 className="mb-0">
+                            {isAdmin
+                                ? "Request Details"
+                                : editingId
+                                  ? "Edit Request"
+                                  : "New Request"}
+                        </h5>
+                    </div>
+
+                    <div className="card-body p-4">
                         <form onSubmit={onSubmit}>
-                            <div className="row g-3">
-                                <div className="col-12">
-                                    <label
-                                        htmlFor="issue_type"
-                                        className="form-label fw-semibold"
-                                    >
-                                        Issue Type
-                                    </label>
+                            {/* Issue type */}
+                            <div className="mb-3">
+                                <label
+                                    htmlFor="issue_type"
+                                    className="form-label fw-semibold"
+                                >
+                                    Issue Type
+                                </label>
 
-                                    <select
-                                        id="issue_type"
-                                        name="issue_type"
-                                        className="form-select"
-                                        value={formData.issue_type}
-                                        onChange={onChange}
-                                        required
-                                    >
-                                        <option value="Door Latch Problem">
-                                            Door Latch Problem
-                                        </option>
-                                        <option value="Leaking Sink">
-                                            Leaking Sink
-                                        </option>
-                                        <option value="Air Conditioning Unit Failure">
-                                            Air Conditioning Unit Failure
-                                        </option>
-                                        <option value="Light Replacement">
-                                            Light Replacement
-                                        </option>
-                                        <option value="Thermometer Replacement">
-                                            Thermometer Replacement
-                                        </option>
-                                        <option value="Other">
-                                            Other
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div className="col-12">
-                                    <label
-                                        htmlFor="request_date"
-                                        className="form-label fw-semibold"
-                                    >
-                                        Date
-                                    </label>
-
-                                    <input
-                                        id="request_date"
-                                        type="date"
-                                        name="request_date"
-                                        className="form-control"
-                                        value={formData.request_date}
-                                        onChange={onChange}
-                                        required
-                                    />
-                                </div>
-
-                                <div className="col-12">
-                                    <label
-                                        htmlFor="description"
-                                        className="form-label fw-semibold"
-                                    >
-                                        Description
-                                    </label>
-
-                                    <textarea
-                                        id="description"
-                                        name="description"
-                                        className="form-control"
-                                        rows="4"
-                                        placeholder="Describe the maintenance issue..."
-                                        value={formData.description}
-                                        onChange={onChange}
-                                        required
-                                    />
-                                </div>
+                                <select
+                                    id="issue_type"
+                                    name="issue_type"
+                                    className="form-select"
+                                    value={formData.issue_type}
+                                    onChange={handleChange}
+                                    disabled={!isResident}
+                                    required
+                                >
+                                    <option value="Door Latch Problem">
+                                        Door Latch Problem
+                                    </option>
+                                    <option value="Plumbing">Plumbing</option>
+                                    <option value="Electrical">Electrical</option>
+                                    <option value="Heating or Cooling">
+                                        Heating or Cooling
+                                    </option>
+                                    <option value="Appliance">Appliance</option>
+                                    <option value="Cleaning">Cleaning</option>
+                                    <option value="Other">Other</option>
+                                </select>
                             </div>
 
-                            {/* Form buttons */}
-                            <div className="d-flex gap-3 mt-4">
-                                <button
-                                    type="submit"
-                                    className="btn text-white flex-grow-1"
-                                    style={{ backgroundColor: "#5f6368" }}
-                                    disabled={loading}
+                            {/* Request date */}
+                            <div className="mb-3">
+                                <label
+                                    htmlFor="request_date"
+                                    className="form-label fw-semibold"
                                 >
-                                    {loading
-                                        ? "Saving..."
-                                        : editingId
-                                            ? "Update Ticket"
-                                            : "Submit Ticket"}
-                                </button>
+                                    Request Date
+                                </label>
 
+                                <input
+                                    type="date"
+                                    id="request_date"
+                                    name="request_date"
+                                    className="form-control"
+                                    value={formData.request_date}
+                                    onChange={handleChange}
+                                    readOnly={!isResident}
+                                    required
+                                />
+                            </div>
+
+                            {/* Description */}
+                            <div className="mb-4">
+                                <label
+                                    htmlFor="description"
+                                    className="form-label fw-semibold"
+                                >
+                                    Description
+                                </label>
+
+                                <textarea
+                                    id="description"
+                                    name="description"
+                                    className="form-control"
+                                    rows="4"
+                                    placeholder="Describe the maintenance issue..."
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    readOnly={!isResident}
+                                    required
+                                />
+                            </div>
+
+                            {/* Resident form buttons */}
+                            {isResident && (
+                                <div className="d-flex flex-wrap gap-2">
+                                    <button
+                                        type="submit"
+                                        className="btn text-white"
+                                        style={{
+                                            backgroundColor: "#4155c7",
+                                        }}
+                                        disabled={saving}
+                                    >
+                                        {saving
+                                            ? "Saving..."
+                                            : editingId
+                                              ? "Save Changes"
+                                              : "Submit Request"}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="btn text-white"
+                                        style={{
+                                            backgroundColor: "#5f6368",
+                                        }}
+                                        disabled={saving}
+                                        onClick={handleCloseForm}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Admin details close button */}
+                            {!isResident && (
                                 <button
                                     type="button"
-                                    className="btn text-white flex-grow-1"
-                                    style={{ backgroundColor: "#ca5c5c" }}
-                                    onClick={() => {
-                                        setShowForm(false);
-                                        setEditingId(null);
-                                        setError(null);
+                                    className="btn text-white"
+                                    style={{
+                                        backgroundColor: "#5f6368",
                                     }}
-                                    disabled={loading}
+                                    onClick={handleCloseForm}
                                 >
-                                    Cancel
+                                    Close
                                 </button>
-                            </div>
+                            )}
                         </form>
                     </div>
                 </div>
-            ) : (
-                /* Maintenance table */
-                <div className="table-responsive">
-                    <table className="table align-middle text-center">
-                        <thead style={{ backgroundColor: "#f0f4f8" }}>
-                            <tr>
-                                <th scope="col" className="py-3">
-                                    Issue
-                                </th>
-                                <th scope="col" className="py-3">
-                                    Date
-                                </th>
-                                <th scope="col" className="py-3">
-                                    Status
-                                </th>
-                                <th scope="col" className="py-3">
-                                    Action
-                                </th>
-                            </tr>
-                        </thead>
+            )}
 
-                        <tbody>
-                            {requests.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colSpan="4"
-                                        className="py-4 text-muted"
-                                    >
-                                        {isResident
-                                            ? 'No maintenance requests submitted yet. Click "+ New Request" to create one.'
-                                            : "No maintenance requests found."}
-                                    </td>
-                                </tr>
-                            ) : (
-                                requests.map((ticket) => (
-                                    <tr key={ticket._id}>
-                                        <td>{ticket.issue_type}</td>
+            {/* IMPORTANT: Hide the entire list while the form/details are open */}
+            {!showForm && (
+                <div className="card shadow-sm border-0">
+                    <div className="card-body p-0">
+                        {loading ? (
+                            <div
+                                className="text-center py-5"
+                                role="status"
+                            >
+                                <div
+                                    className="spinner-border"
+                                    style={{ color: "#4155c7" }}
+                                    aria-hidden="true"
+                                />
 
-                                        <td>
-                                            {formatDateDisplay(
-                                                ticket.request_date
-                                            )}
-                                        </td>
-
-                                        <td>
-                                            <span
-                                                className={`badge px-3 py-2 rounded-pill ${getStatusBadge(
-                                                    ticket.status
-                                                )}`}
+                                <p className="mt-2 mb-0">
+                                    Loading maintenance requests...
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="table-responsive">
+                                <table className="table table-hover align-middle mb-0">
+                                    <thead>
+                                        <tr
+                                            style={{
+                                                backgroundColor: "#ede6e2",
+                                            }}
+                                        >
+                                            <th
+                                                scope="col"
+                                                className="text-center py-3"
                                             >
-                                                {ticket.status}
-                                            </span>
-                                        </td>
+                                                Issue
+                                            </th>
 
-                                        <td>
-                                            <div className="d-flex justify-content-center gap-2">
-                                                {/* Residents can edit their own requests.
-                                                    Admins can edit any request. */}
-                                                {(isResident || isAdmin) && (
-                                                    <button
-                                                        className="btn btn-sm text-white px-3"
-                                                        style={{
-                                                            backgroundColor: "#5f6368",
-                                                        }}
-                                                        onClick={() =>
-                                                            handleEdit(ticket)
-                                                        }
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                )}
+                                            <th
+                                                scope="col"
+                                                className="text-center py-3"
+                                            >
+                                                Date
+                                            </th>
 
-                                                {(isResident || isAdmin) && (
-                                                    <button
-                                                        className="btn btn-sm text-white px-3"
-                                                        style={{
-                                                            backgroundColor: "#ca5c5c",
-                                                        }}
-                                                        onClick={() =>
-                                                            handleDelete(ticket._id)
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                            <th
+                                                scope="col"
+                                                className="text-center py-3"
+                                            >
+                                                Status
+                                            </th>
+
+                                            {isAdmin && (
+                                                <th
+                                                    scope="col"
+                                                    className="text-center py-3"
+                                                >
+                                                    Update Status
+                                                </th>
+                                            )}
+
+                                            {(isResident || isAdmin) && (
+                                                <th
+                                                    scope="col"
+                                                    className="text-center py-3"
+                                                >
+                                                    Action
+                                                </th>
+                                            )}
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        {requests.length === 0 ? (
+                                            <tr>
+                                                <td
+                                                    colSpan={
+                                                        3 +
+                                                        (isAdmin ? 2 : 0) +
+                                                        (isResident ? 1 : 0)
+                                                    }
+                                                    className="text-center py-5 text-muted"
+                                                >
+                                                    No maintenance requests found.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            requests.map((ticket) => (
+                                                <tr key={ticket._id}>
+                                                    <td className="text-center">
+                                                        <span className="fw-semibold">
+                                                            {ticket.issue_type ||
+                                                                "Maintenance Issue"}
+                                                        </span>
+                                                    </td>
+
+                                                    <td className="text-center">
+                                                        {formatDate(
+                                                            ticket.request_date
+                                                        )}
+                                                    </td>
+
+                                                    <td className="text-center">
+                                                        <span
+                                                            className={`badge ${getStatusBadge(
+                                                                ticket.status
+                                                            )}`}
+                                                        >
+                                                            {ticket.status ||
+                                                                "Review"}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Admin status dropdown */}
+                                                    {isAdmin && (
+                                                        <td className="text-center">
+                                                            <select
+                                                                className="form-select form-select-sm mx-auto"
+                                                                style={{
+                                                                    minWidth:
+                                                                        "140px",
+                                                                    maxWidth:
+                                                                        "160px",
+                                                                }}
+                                                                aria-label={`Update status for ${
+                                                                    ticket.issue_type ||
+                                                                    "maintenance request"
+                                                                }`}
+                                                                value={getDropdownStatus(
+                                                                    ticket.status
+                                                                )}
+                                                                onChange={(
+                                                                    event
+                                                                ) =>
+                                                                    handleStatusChange(
+                                                                        ticket._id,
+                                                                        event
+                                                                            .target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                            >
+                                                                {statusOptions.map(
+                                                                    (status) => (
+                                                                        <option
+                                                                            key={
+                                                                                status
+                                                                            }
+                                                                            value={
+                                                                                status
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                status
+                                                                            }
+                                                                        </option>
+                                                                    )
+                                                                )}
+                                                            </select>
+                                                        </td>
+                                                    )}
+
+                                                    {/* Action buttons */}
+                                                    {(isResident || isAdmin) && (
+                                                        <td className="text-center">
+                                                            <div className="d-flex justify-content-center flex-wrap gap-2">
+                                                                {isAdmin ? (
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm text-white"
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    "#4155c7",
+                                                                            }}
+                                                                            onClick={() =>
+                                                                                handleView(
+                                                                                    ticket
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            View
+                                                                        </button>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm text-white"
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    "#ca5c5c",
+                                                                            }}
+                                                                            onClick={() =>
+                                                                                handleDelete(
+                                                                                    ticket._id
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm text-white"
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    "#5f6368",
+                                                                            }}
+                                                                            onClick={() =>
+                                                                                handleEdit(
+                                                                                    ticket
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm text-white"
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    "#ca5c5c",
+                                                                            }}
+                                                                            onClick={() =>
+                                                                                handleDelete(
+                                                                                    ticket._id
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
     );
-};
-
-export default Maintenance;
+}

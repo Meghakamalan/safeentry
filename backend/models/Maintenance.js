@@ -1,30 +1,57 @@
+
 import mongoose from "mongoose";
+
 const maintenanceSchema = new mongoose.Schema(
     {
-        //link maintenance log to logged in resident
+        // Link the maintenance request to the resident.
         resident_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
+
+        // Type of maintenance issue.
         issue_type: {
             type: String,
             required: true,
         },
-        description: { 
+
+        // Description of the issue.
+        description: {
             type: String,
             required: true,
         },
+
+        // Date the request was submitted.
         request_date: {
             type: Date,
             default: Date.now,
         },
+
+        // Current maintenance request status.
         status: {
             type: String,
-            enum: ["Submitted", "In progress", "Resolved", "Closed", "submitted", "in progress", "resolved", "closed"],
-            default: "Submitted", //default status
+            enum: [
+                "Review",
+                "Assign",
+                "Resolved",
+
+                // Older statuses kept for existing records.
+                "Submitted",
+                "In progress",
+                "Resolved",
+                "Closed",
+                "submitted",
+                "in progress",
+                "resolved",
+                "closed",
+            ],
+            default: "Review",
         },
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+    }
 );
+
 export default mongoose.model("Maintenance", maintenanceSchema);
