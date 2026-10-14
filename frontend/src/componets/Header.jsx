@@ -1,5 +1,6 @@
 import React from "react";
 const Header = ({user}) => {
+  // console.log(user);
     //find the initials dynamically
     const getInitials = (user) => {
         if(!user) return "?";

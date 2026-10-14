@@ -12,6 +12,31 @@ export const getMaintenanceRequest = async (req , res) =>{
 
     }   
 };
+
+// get fetch all maintenance requests registered by the logged-in admin
+export const getAllMaintenanceRequests = async (req, res) => {
+    try {
+        console.log("Database:", Maintenance.db.name);
+        console.log("Collection:", Maintenance.collection.name);
+
+        const totalRequests = await Maintenance.countDocuments();
+        console.log("Total maintenance requests:", totalRequests);
+
+        const requests = await Maintenance.find().sort({
+            createdAt: -1,
+        });
+
+        console.log("Fetched requests:", requests);
+
+        return res.status(200).json(requests);
+    } catch (error) {
+        console.error("Get All Maintenance Error:", error);
+
+        return res.status(500).json({
+            message: error.message || "Error fetching all maintenance requests",
+        });
+    }
+};
 // POST creating a new maintenance request
 export const createMaintenanceRequest = async(req,res)=>{
     try{

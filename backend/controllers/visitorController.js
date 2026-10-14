@@ -1,99 +1,329 @@
+
 import Visitor from "../models/Visitor.js";
-//GET Fetch all visitors registered by the logged-in resident
+
+// GET: Fetch visitors registered by the logged-in Resident
 export const getVisitors = async (req, res) => {
     try {
-        const visitors = await Visitor.find({resident_id: req.user.id}).sort({ createdAt: -1 }); // Sort by most recent
-        res.json(visitors);
+        const userId = req.user?.id || req.user?._id;
+        const role = String(req.user?.role || "").toLowerCase();
+
+        if (!userId) {
+            return res.status(401).json({
+                message: "User not authenticated"
+            });
+        }
+
+        let visitors;
+
+        if (role === "resident") {
+            // Residents can only see their own visitors
+            visitors = await Visitor.find({
+                resident_id: userId
+            }).sort({ createdAt: -1 });
+
+        } else if (role === "admin" || role === "guard") {
+            // Admins and Guards can see all visitors
+            visitors = await Visitor.find()
+                .sort({ createdAt: -1 });
+
+        } else {
+            return res.status(403).json({
+                message: "Access denied"
+            });
+        }
+
+        return res.status(200).json(visitors);
+
     } catch (error) {
         console.error("Get Visitors Error:", error);
-        res.status(500).json({ message: "Error fetching visitors" });
+
+        return res.status(500).json({
+            message: "Error fetching visitors"
+        });
     }
 };
 
-//POST Create a new visitor record
-export const createVisitor = async (req, res) => {
+
+// GET: Fetch all visitors for Admin
+export const getAllVisitors = async (req, res) => {
     try {
-        //check if user id exist from the JWT token
-        const residentId = req.user?.id || req.user?._id; // Fallback to _id if id is not present
-        console.log("Creating visitor for Resident ID:", residentId); // Add this log
-        console.log("Request Body:", req.body); // Add this log
-        if (!residentId) {
-            return res.status(401).json({ message: "User not authenticated" });
+        const role = String(req.user?.role || "").toLowerCase();
+
+        console.log("Get All Visitors - User:", req.user);
+
+        // Only Admins can access this endpoint
+        if (role !== "admin") {
+            return res.status(403).json({
+                message: "Access denied. Admins only."
+            });
         }
 
-        const { first_name, last_name, expected_date, expected_time, vehicle_info } = req.body;
-        //validate required fields
-        if (!first_name || !last_name || !expected_date || !expected_time) {
-            return res.status(400).json({ message: "All fields are required" });
+        const visitors = await Visitor.find()
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json(visitors);
+
+    } catch (error) {
+        console.error("Get All Visitors Error:", error);
+
+        return res.status(500).json({
+            message: "Error fetching all visitors"
+        });
+    }
+};
+
+
+// POST: Create a new visitor record
+export const createVisitor = async (req, res) => {
+    try {
+        const userId = req.user?.id || req.user?._id;
+        const role = String(req.user?.role || "").toLowerCase();
+
+        if (!userId) {
+            return res.status(401).json({
+                message: "User not authenticated"
+            });
         }
-        const newVisitor = new Visitor({
-            resident_id: residentId,
+
+        if (!["resident", "guard", "admin"].includes(role)) {
+            return res.status(403).json({
+                message: "Access denied"
+            });
+        }
+
+        const {
             first_name,
             last_name,
-            expected_date : new Date(expected_date),
+            expected_date,
             expected_time,
-            vehicle_info,
-            status: "Pending",// Default status
+            vehicle_info
+        } = req.body;
+
+        // Validate required fields
+        if (
+            !first_name?.trim() ||
+            !last_name?.trim() ||
+            !expected_date ||
+            !expected_time
+        ) {
+            return res.status(400).json({
+                message: "First name, last name, expected date, and expected time are required"
+            });
+        }
+
+        // Residents register visitors for themselves.
+        // Guards/Admins must provide the Resident's ID.
+        let residentId;
+
+        if (role === "resident") {
+            residentId = userId;
+        } else {
+            residentId = req.body.resident_id;
+
+            if (!residentId) {
+                return res.status(400).json({
+                    message: "resident_id is required when registering for a Resident"
+                });
+            }
+        }
+
+        const parsedDate = new Date(expected_date);
+
+        if (Number.isNaN(parsedDate.getTime())) {
+            return res.status(400).json({
+                message: "Invalid expected date"
+            });
+        }
+
+        const newVisitor = new Visitor({
+            resident_id: residentId,
+            first_name: first_name.trim(),
+            last_name: last_name.trim(),
+            expected_date: parsedDate,
+            expected_time,
+            vehicle_info: vehicle_info || "",
+            status: "Pending"
         });
 
         await newVisitor.save();
-        console.log("Visitor saved successfully:", newVisitor); // Add this log 
 
-        res.status(201).json({
+        console.log("Visitor saved successfully:", newVisitor._id);
+
+        return res.status(201).json({
             message: "Visitor created successfully",
-            visitor: newVisitor,
+            visitor: newVisitor
         });
+
     } catch (error) {
         console.error("Create Visitor Error:", error);
-        res.status(500).json({ message: "Error creating visitor" });
+
+        if (error.name === "ValidationError") {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        return res.status(500).json({
+            message: "Error creating visitor"
+        });
     }
 };
 
-//PUT Update an existing visitor record
+
+// PUT: Update an existing visitor record
 export const updateVisitor = async (req, res) => {
     try {
+        const userId = req.user?.id || req.user?._id;
+        const role = String(req.user?.role || "").toLowerCase();
         const { id } = req.params;
-        const { first_name, last_name, expected_date, expected_time, vehicle_info } = req.body;
 
-        //verify that the visitor belongs to the logged-in resident
-        const visitor = await Visitor.findOne({ _id: id, resident_id: req.user.id });
+        if (!userId) {
+            return res.status(401).json({
+                message: "User not authenticated"
+            });
+        }
+
+        // Residents can edit their own records.
+        // Admins can edit any record.
+        // Guards cannot edit records.
+        if (!["resident", "admin"].includes(role)) {
+            return res.status(403).json({
+                message: "You do not have permission to update visitors"
+            });
+        }
+
+        const {
+            first_name,
+            last_name,
+            expected_date,
+            expected_time,
+            vehicle_info,
+            status
+        } = req.body;
+
+        const filter = role === "admin"
+            ? { _id: id }
+            : { _id: id, resident_id: userId };
+
+        const visitor = await Visitor.findOne(filter);
+
         if (!visitor) {
-            return res.status(404).json({ message: "Visitor record not found" });
+            return res.status(404).json({
+                message: "Visitor record not found"
+            });
         }
 
-        visitor.first_name = first_name || visitor.first_name;
-        visitor.last_name = last_name || visitor.last_name;
-        if (expected_date) {
-            visitor.expected_date = new Date(expected_date);
+        if (first_name !== undefined) {
+            visitor.first_name = first_name;
         }
-        visitor.expected_time = expected_time || visitor.expected_time;
-        visitor.vehicle_info = vehicle_info!==undefined ? vehicle_info : visitor.vehicle_info;
+
+        if (last_name !== undefined) {
+            visitor.last_name = last_name;
+        }
+
+        if (expected_date !== undefined) {
+            const parsedDate = new Date(expected_date);
+
+            if (Number.isNaN(parsedDate.getTime())) {
+                return res.status(400).json({
+                    message: "Invalid expected date"
+                });
+            }
+
+            visitor.expected_date = parsedDate;
+        }
+
+        if (expected_time !== undefined) {
+            visitor.expected_time = expected_time;
+        }
+
+        if (vehicle_info !== undefined) {
+            visitor.vehicle_info = vehicle_info;
+        }
+
+        // Only Admins can change the visitor status.
+        if (role === "admin" && status !== undefined) {
+            visitor.status = status;
+        }
 
         await visitor.save();
 
-        res.json({
+        return res.status(200).json({
             message: "Visitor updated successfully",
-            visitor,
+            visitor
         });
+
     } catch (error) {
         console.error("Update Visitor Error:", error);
-        res.status(500).json({ message: "Error updating visitor" });
 
+        if (error.name === "CastError") {
+            return res.status(400).json({
+                message: "Invalid visitor ID"
+            });
+        }
+
+        if (error.name === "ValidationError") {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        return res.status(500).json({
+            message: "Error updating visitor"
+        });
     }
 };
 
-//DELETE a visitor request
+
+// DELETE: Delete a visitor request
 export const deleteVisitor = async (req, res) => {
     try {
+        const userId = req.user?.id || req.user?._id;
+        const role = String(req.user?.role || "").toLowerCase();
         const { id } = req.params;
-        const deletedVisitor = await Visitor.findOneAndDelete({ _id: id, resident_id: req.user.id });
-        if (!deletedVisitor) {
-            return res.status(404).json({ message: "Visitor record not found" });
+
+        if (!userId) {
+            return res.status(401).json({
+                message: "User not authenticated"
+            });
         }
-        res.json({
-            message: "Visitor deleted successfully" });
+
+        // Residents can delete their own records.
+        // Admins can delete any record.
+        // Guards cannot delete records.
+        if (!["resident", "admin"].includes(role)) {
+            return res.status(403).json({
+                message: "You do not have permission to delete visitors"
+            });
+        }
+
+        const filter = role === "admin"
+            ? { _id: id }
+            : { _id: id, resident_id: userId };
+
+        const deletedVisitor = await Visitor.findOneAndDelete(filter);
+
+        if (!deletedVisitor) {
+            return res.status(404).json({
+                message: "Visitor record not found"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Visitor deleted successfully"
+        });
+
     } catch (error) {
         console.error("Delete Visitor Error:", error);
-        res.status(500).json({ message: "Error deleting visitor" });
+
+        if (error.name === "CastError") {
+            return res.status(400).json({
+                message: "Invalid visitor ID"
+            });
+        }
+
+        return res.status(500).json({
+            message: "Error deleting visitor"
+        });
     }
 };
