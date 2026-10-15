@@ -57,7 +57,7 @@ const Sidebar = () => {
                     {isResident && (
                         <>
                             <li className="nav-item">
-                                <NavLink to="/resident" className={linkClass}>
+                                <NavLink to="/home" className={linkClass}>
                                     Homes
                                 </NavLink>
                             </li>
@@ -101,7 +101,7 @@ const Sidebar = () => {
                     {isGuard && (
                         <>
                             <li className="nav-item">
-                                <NavLink to="/resident" className={linkClass}>
+                                <NavLink to="/home" className={linkClass}>
                                     Homes
                                 </NavLink>
                             </li>

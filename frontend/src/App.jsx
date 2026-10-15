@@ -11,9 +11,16 @@ import Announcements from "./pages/Announcement";
 import Users from "./pages/Users";
 import Delivery from "./pages/Delivery";
 import Profile from "./pages/Profile";
+import Home from "./pages/Home";
 
 
 function App() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+console.log("Saved user:", user);
+console.log("Unit:", user?.unit);
+console.log("Unit number:", user?.unit_number);
+console.log("Role:", user?.role);
   return (
     <BrowserRouter>
       <Routes>
@@ -32,6 +39,8 @@ function App() {
           <Route path="/deliveries" element={<Delivery/>} />
           <Route path="/users" element={<Users />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/home" element={<Home />} />
+
         </Route>
 
       </Routes>

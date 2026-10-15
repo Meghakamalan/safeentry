@@ -24,15 +24,28 @@ const Visitors = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Read the logged-in user from Auth.jsx and localStorage.
     const loggedInUser = getLoggedInUser();
 
+    const savedUser = (() => {
+        try {
+            return JSON.parse(localStorage.getItem("user") || "null");
+        } catch {
+            return null;
+        }
+    })();
+
+    const currentUser = loggedInUser || savedUser;
+
     const userRole = String(
-        loggedInUser?.role || getUserRole() || ""
+        currentUser?.role || getUserRole() || ""
     ).toLowerCase();
 
-    // Your user object stores the unit as "unit", not "unit_number".
+    // Support both unit and unit_number.
     const residentUnitNumber = String(
-        loggedInUser?.unit ?? ""
+        currentUser?.unit ??
+        currentUser?.unit_number ??
+        ""
     ).trim();
 
     const isAdmin = userRole === "admin";
@@ -44,7 +57,7 @@ const Visitors = () => {
     const canDeleteVisitor = isResident || isAdmin;
     const isReadOnly = isAdmin;
 
-    // Keep the Resident's unit number synchronized with the account.
+    // Keep the resident's assigned unit in the form.
     useEffect(() => {
         if (isResident && residentUnitNumber) {
             setFormData((previous) => ({
@@ -62,10 +75,12 @@ const Visitors = () => {
                 { withCredentials: true }
             );
 
+            const data = response.data;
+
             setVisitors(
-                Array.isArray(response.data)
-                    ? response.data
-                    : response.data?.visitors || []
+                Array.isArray(data)
+                    ? data
+                    : data?.visitors || []
             );
 
             setError(null);
@@ -87,10 +102,12 @@ const Visitors = () => {
                 { withCredentials: true }
             );
 
+            const data = response.data;
+
             setAllVisitors(
-                Array.isArray(response.data)
-                    ? response.data
-                    : response.data?.visitors || []
+                Array.isArray(data)
+                    ? data
+                    : data?.visitors || []
             );
 
             setError(null);
@@ -104,7 +121,7 @@ const Visitors = () => {
         }
     }, []);
 
-    // Refresh the correct visitor list for the current role.
+    // Refresh the list according to the user's role.
     const refreshVisitors = useCallback(async () => {
         if (isAdmin) {
             await fetchAllVisitors();
@@ -119,7 +136,7 @@ const Visitors = () => {
 
     const displayedVisitors = isAdmin ? allVisitors : visitors;
 
-    // Handle input changes.
+    // Handle form input changes.
     const onChange = (e) => {
         if (isReadOnly) return;
 
@@ -134,13 +151,13 @@ const Visitors = () => {
         }));
     };
 
-    // Open the form for creating a visitor.
+    // Open the new visitor form.
     const handleAddNew = () => {
         if (!canAddVisitor) return;
 
         if (isResident && !residentUnitNumber) {
             setError(
-                "Your account has no registered unit. Please sign in again or contact your administrator."
+                "Your unit number could not be loaded. Please log in again. If the problem continues, check Auth.jsx."
             );
             return;
         }
@@ -156,7 +173,7 @@ const Visitors = () => {
         setShowForm(true);
     };
 
-    // Open an existing visitor in Admin read-only mode.
+    // Admin can view a visitor's details.
     const handleView = (visitor) => {
         if (!isAdmin) return;
 
@@ -164,9 +181,14 @@ const Visitors = () => {
             ...initialForm,
             first_name: visitor.first_name || "",
             last_name: visitor.last_name || "",
-            unit_number: visitor.unit_number || "",
-            resident_id: visitor.resident_id?._id ||
-                visitor.resident_id || "",
+            unit_number:
+                visitor.unit_number ||
+                visitor.resident_id?.unit ||
+                "",
+            resident_id:
+                visitor.resident_id?._id ||
+                visitor.resident_id ||
+                "",
             expected_date: visitor.expected_date
                 ? String(visitor.expected_date).split("T")[0]
                 : "",
@@ -179,13 +201,13 @@ const Visitors = () => {
         setShowForm(true);
     };
 
-    // Edit a visitor. Residents only.
+    // Resident can edit their own visitor.
     const handleEdit = (visitor) => {
         if (!canEditVisitor) return;
 
         if (!residentUnitNumber) {
             setError(
-                "Your account has no registered unit. Please contact your administrator."
+                "Your account does not have a unit number assigned. Please contact your administrator."
             );
             return;
         }
@@ -207,7 +229,7 @@ const Visitors = () => {
         setShowForm(true);
     };
 
-    // Delete a visitor. Residents and Admins only.
+    // Resident/Admin can delete visitors, subject to backend permissions.
     const handleDelete = async (id) => {
         if (!canDeleteVisitor) return;
 
@@ -234,7 +256,7 @@ const Visitors = () => {
         }
     };
 
-    // Guard can update visitor status.
+    // Guard can update a visitor's status.
     const handleStatusChange = async (visitorId, newStatus) => {
         if (!isGuard) return;
 
@@ -281,15 +303,13 @@ const Visitors = () => {
 
         if (isResident && !residentUnitNumber) {
             setError(
-                "Your account has no registered unit. Please sign in again or contact your administrator."
+                "Your unit number could not be loaded. Please log in again."
             );
             return;
         }
 
         if (isGuard && !formData.resident_id.trim()) {
-            setError(
-                "Please enter the resident's account ID as required by the backend."
-            );
+            setError("Please enter the resident's account ID.");
             return;
         }
 
@@ -382,7 +402,7 @@ const Visitors = () => {
         <div className="container-fluid py-2">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h1
-                    className="h3 fw-bold text-secondary"
+                    className="h3 fw-bold"
                     style={{ color: "#1f3a52" }}
                 >
                     {showForm
@@ -477,12 +497,6 @@ const Visitors = () => {
                                             Your registered unit is filled in automatically.
                                         </small>
                                     )}
-
-                                    {isGuard && (
-                                        <small className="text-muted">
-                                            Enter the resident's unit number.
-                                        </small>
-                                    )}
                                 </div>
 
                                 {isGuard && (
@@ -500,9 +514,6 @@ const Visitors = () => {
                                             placeholder="Enter the resident's MongoDB user ID"
                                             required
                                         />
-                                        <small className="text-muted">
-                                            The backend requires the resident's account ID to link the visitor to the correct resident.
-                                        </small>
                                     </div>
                                 )}
 
@@ -595,6 +606,7 @@ const Visitors = () => {
                                 <th className="py-3">Time</th>
                                 <th className="py-3">Vehicle Info</th>
                                 <th className="py-3">Status</th>
+
                                 {(canEditVisitor || canDeleteVisitor || isAdmin) && (
                                     <th className="py-3">Action</th>
                                 )}
@@ -620,12 +632,24 @@ const Visitors = () => {
                                         <td>
                                             {visitor.first_name} {visitor.last_name}
                                         </td>
-                                        <td>{visitor.unit_number || "—"}</td>
-                                        <td>{formatDateDisplay(visitor.expected_date)}</td>
+
+                                        <td>
+                                            {visitor.unit_number ||
+                                                (isResident ? residentUnitNumber : "") ||
+                                                visitor.resident_id?.unit ||
+                                                "—"}
+                                        </td>
+
+                                        <td>
+                                            {formatDateDisplay(visitor.expected_date)}
+                                        </td>
+
                                         <td>{visitor.expected_time || "—"}</td>
+
                                         <td style={{ whiteSpace: "pre-line" }}>
                                             {visitor.vehicle_info || "—"}
                                         </td>
+
                                         <td>
                                             {isGuard ? (
                                                 <select

@@ -28,17 +28,21 @@ export const getVisitors = async (req, res) => {
       });
     }
 
-    // Support older visitor records that do not have unit_number.
+    // Support older visitor records without unit_number.
     const results = await Promise.all(
       visitors.map(async (visitor) => {
         const item = visitor.toObject();
 
         if (!item.unit_number && item.resident_id) {
           const resident = await User.findById(item.resident_id)
-            .select("unit")
+            .select("unit unit_number")
             .lean();
 
-          item.unit_number = resident?.unit || "";
+          item.unit_number = String(
+            resident?.unit ??
+            resident?.unit_number ??
+            ""
+          ).trim();
         }
 
         return item;
@@ -74,10 +78,14 @@ export const getAllVisitors = async (req, res) => {
 
         if (!item.unit_number && item.resident_id) {
           const resident = await User.findById(item.resident_id)
-            .select("unit")
+            .select("unit unit_number")
             .lean();
 
-          item.unit_number = resident?.unit || "";
+          item.unit_number = String(
+            resident?.unit ??
+            resident?.unit_number ??
+            ""
+          ).trim();
         }
 
         return item;
@@ -136,8 +144,9 @@ export const createVisitor = async (req, res) => {
     let unitNumber;
 
     if (role === "resident") {
-      // Get the Resident's unit from MongoDB.
-      const resident = await User.findById(userId).select("unit");
+      // Always use the authenticated resident's database record.
+      const resident = await User.findById(userId)
+        .select("unit unit_number");
 
       if (!resident) {
         return res.status(404).json({
@@ -145,17 +154,31 @@ export const createVisitor = async (req, res) => {
         });
       }
 
-      if (!resident.unit) {
+      // Support either field name in the User schema.
+      const assignedUnit =
+        resident.unit ?? resident.unit_number;
+
+      if (
+        assignedUnit === undefined ||
+        assignedUnit === null ||
+        String(assignedUnit).trim() === ""
+      ) {
+        console.error("Resident has no unit assigned:", {
+          userId: String(userId),
+          unit: resident.unit,
+          unit_number: resident.unit_number,
+        });
+
         return res.status(400).json({
-          message: "Your account does not have a unit number assigned",
+          message:
+            "Your account does not have a unit number assigned",
         });
       }
 
       residentId = resident._id;
-      unitNumber = String(resident.unit).trim();
+      unitNumber = String(assignedUnit).trim();
     } else {
-      // Guards/Admins must identify the resident account
-      // associated with the visitor registration.
+      // Guards/Admins must identify the resident account.
       residentId = req.body.resident_id;
       unitNumber = String(req.body.unit_number || "").trim();
 
@@ -291,18 +314,31 @@ export const updateVisitor = async (req, res) => {
       visitor.vehicle_info = vehicle_info.trim();
     }
 
-    // Do not allow residents to change their assigned unit
-    // through the visitor update request.
+    // Residents cannot change their assigned unit.
     if (role === "resident") {
-      const resident = await User.findById(userId).select("unit");
+      const resident = await User.findById(userId)
+        .select("unit unit_number");
 
-      if (!resident?.unit) {
+      if (!resident) {
+        return res.status(404).json({
+          message: "Resident account not found",
+        });
+      }
+
+      const assignedUnit =
+        resident.unit ?? resident.unit_number;
+
+      if (
+        assignedUnit === undefined ||
+        assignedUnit === null ||
+        String(assignedUnit).trim() === ""
+      ) {
         return res.status(400).json({
           message: "Resident unit number not found",
         });
       }
 
-      visitor.unit_number = String(resident.unit).trim();
+      visitor.unit_number = String(assignedUnit).trim();
     }
 
     await visitor.save();
@@ -345,7 +381,8 @@ export const updateVisitorStatus = async (req, res) => {
 
     if (!["guard", "admin"].includes(role)) {
       return res.status(403).json({
-        message: "Only Guards and Admins can update visitor status",
+        message:
+          "Only Guards and Admins can update visitor status",
       });
     }
 
@@ -407,7 +444,8 @@ export const deleteVisitor = async (req, res) => {
 
     if (!["resident", "admin"].includes(role)) {
       return res.status(403).json({
-        message: "You do not have permission to delete visitors",
+        message:
+          "You do not have permission to delete visitors",
       });
     }
 
