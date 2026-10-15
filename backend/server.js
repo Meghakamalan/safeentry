@@ -7,6 +7,7 @@ import visitorRoutes from "./routes/visitorRoutes.js";
 import maintenanceRoutes from "./routes/maintenanceRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import deliveryRoutes from "./routes/deliveryRoutes.js";
 
 import authRoutes from "./routes/authRoutes.js";
 
@@ -66,6 +67,9 @@ app.use("/api/announcements", announcementRoutes);
 
 //user routes
 app.use("/api/users", userRoutes);
+
+//delivery routes
+app.use("/api/deliveries", deliveryRoutes);
 
 const PORT = process.env.PORT;
 

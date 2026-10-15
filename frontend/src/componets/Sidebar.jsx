@@ -49,7 +49,7 @@ const Sidebar = () => {
         {/* Navigation List */}
         <ul className="nav nav-pills flex-column gap-2">
           {/* Resident Menu */}
-          {userRole === "Resident" && (
+          {userRole === "Resident" || userRole === "Guard" && (
             <>
               <li className="nav-item">
                 <NavLink
