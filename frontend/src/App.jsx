@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Visitors from "./pages/Visitors";
 import Maintenance from "./pages/Maintenance";
 import Announcements from "./pages/Announcement";
+import Users from "./pages/Users";
 
 
 function App() {
@@ -27,7 +28,7 @@ function App() {
           <Route path="/visitors" element={<Visitors />} />
           <Route path="/announcements" element={<Announcements />} />
           <Route path="/deliveries" element={<ResidentDashBoard />} />
-          <Route path="/users" element={<Register />} />
+          <Route path="/users" element={<Users />} />
         </Route>
       </Routes>
     </BrowserRouter>

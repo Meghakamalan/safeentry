@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import visitorRoutes from "./routes/visitorRoutes.js";
 import maintenanceRoutes from "./routes/maintenanceRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 import authRoutes from "./routes/authRoutes.js";
 
@@ -62,6 +63,9 @@ app.use("/api/maintenance", maintenanceRoutes);
 
 //Announcement routes
 app.use("/api/announcements", announcementRoutes);
+
+//user routes
+app.use("/api/users", userRoutes);
 
 const PORT = process.env.PORT;
 
