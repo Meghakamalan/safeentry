@@ -9,6 +9,7 @@ import Visitors from "./pages/Visitors";
 import Maintenance from "./pages/Maintenance";
 import Announcements from "./pages/Announcement";
 import Users from "./pages/Users";
+import Delivery from "./pages/Delivery";
 
 
 function App() {
@@ -27,7 +28,7 @@ function App() {
           <Route path="/maintenance" element={<Maintenance />} />
           <Route path="/visitors" element={<Visitors />} />
           <Route path="/announcements" element={<Announcements />} />
-          <Route path="/deliveries" element={<ResidentDashBoard />} />
+          <Route path="/deliveries" element={<Delivery/>} />
           <Route path="/users" element={<Users />} />
         </Route>
       </Routes>

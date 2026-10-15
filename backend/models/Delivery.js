@@ -7,7 +7,6 @@ const deliverySchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
-
         delivery_type: {
             type: String,
             required: true,
@@ -17,33 +16,27 @@ const deliverySchema = new mongoose.Schema(
                 "Courier Service",
             ],
         },
-
         courier_name: {
             type: String,
             required: true,
             trim: true,
         },
-
         guard_name: {
             type: String,
             required: true,
             trim: true,
         },
-
         pickup_location: {
             type: String,
             required: true,
             enum: ["Security Desk", "Locker"],
         },
-
         logged_at: {
             type: Date,
             default: Date.now,
         },
     },
-    {
-        timestamps: true,
-    }
+    { timestamps: true }
 );
 
 export default mongoose.model("Delivery", deliverySchema);

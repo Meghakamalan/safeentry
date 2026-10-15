@@ -1,24 +1,72 @@
 import mongoose from "mongoose";
 import Delivery from "../models/Delivery.js";
+import User from "../models/User.js";
 
-// Check whether the logged-in user is an admin or guard
-const isGuardOrAdmin = (req) => {
-    const role = String(req.user?.role || "").toLowerCase();
+// Normalize roles such as "Guard" and "guard"
+const getRole = (req) =>
+    String(req.user?.role || "").toLowerCase();
 
-    return role === "guard" || role === "admin";
+// Find the authenticated user in MongoDB
+const getAuthenticatedUser = async (req) => {
+    const userId = req.user?.id || req.user?._id;
+
+    if (!userId || !mongoose.isValidObjectId(userId)) {
+        return null;
+    }
+
+    return User.findById(userId).select(
+        "first_name last_name email role unit_number"
+    );
 };
 
-// Get all deliveries
+// GET /api/deliveries
+// Guard: see all deliveries
+// Resident: see only deliveries for their own unit
 export const getDeliveries = async (req, res) => {
     try {
-        if (!isGuardOrAdmin(req)) {
+        const role = getRole(req);
+
+        if (!["guard", "resident"].includes(role)) {
             return res.status(403).json({
-                message: "Access denied. Guards and admins only.",
+                message: "You are not authorized to view deliveries.",
             });
         }
 
-        const deliveries = await Delivery.find()
-            .sort({ logged_at: -1 });
+        if (role === "guard") {
+            const deliveries = await Delivery.find().sort({
+                logged_at: -1,
+            });
+
+            return res.status(200).json(deliveries);
+        }
+
+        // Resident: get the unit from their database account
+        const resident = await getAuthenticatedUser(req);
+
+        if (!resident) {
+            return res.status(401).json({
+                message: "User not found. Please log in again.",
+            });
+        }
+
+        if (String(resident.role).toLowerCase() !== "resident") {
+            return res.status(403).json({
+                message: "Resident access is required.",
+            });
+        }
+
+        if (!resident.unit_number?.trim()) {
+            return res.status(400).json({
+                message:
+                    "Your account does not have a unit number. Contact your building administrator.",
+            });
+        }
+
+        const deliveries = await Delivery.find({
+            resident_unit: resident.unit_number.trim(),
+        }).sort({
+            logged_at: -1,
+        });
 
         return res.status(200).json(deliveries);
     } catch (error) {
@@ -30,18 +78,22 @@ export const getDeliveries = async (req, res) => {
     }
 };
 
-// Get one delivery by ID
+// GET /api/deliveries/:id
+// Guard: can view any delivery
+// Resident: can view a delivery only if it belongs to their unit
 export const getDeliveryById = async (req, res) => {
     try {
-        if (!isGuardOrAdmin(req)) {
+        const role = getRole(req);
+
+        if (!["guard", "resident"].includes(role)) {
             return res.status(403).json({
-                message: "Access denied. Guards and admins only.",
+                message: "You are not authorized to view deliveries.",
             });
         }
 
         const { id } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
+        if (!mongoose.isValidObjectId(id)) {
             return res.status(400).json({
                 message: "Invalid delivery ID.",
             });
@@ -55,9 +107,35 @@ export const getDeliveryById = async (req, res) => {
             });
         }
 
+        if (role === "resident") {
+            const resident = await getAuthenticatedUser(req);
+
+            if (!resident) {
+                return res.status(401).json({
+                    message: "User not found. Please log in again.",
+                });
+            }
+
+            if (String(resident.role).toLowerCase() !== "resident") {
+                return res.status(403).json({
+                    message: "Resident access is required.",
+                });
+            }
+
+            if (
+                !resident.unit_number?.trim() ||
+                delivery.resident_unit !== resident.unit_number.trim()
+            ) {
+                return res.status(403).json({
+                    message:
+                        "You can only view deliveries for your own unit.",
+                });
+            }
+        }
+
         return res.status(200).json(delivery);
     } catch (error) {
-        console.error("Get delivery error:", error);
+        console.error("Get delivery by ID error:", error);
 
         return res.status(500).json({
             message: "Failed to fetch delivery.",
@@ -65,12 +143,13 @@ export const getDeliveryById = async (req, res) => {
     }
 };
 
-// Create a delivery
+// POST /api/deliveries
+// Guard only
 export const createDelivery = async (req, res) => {
     try {
-        if (!isGuardOrAdmin(req)) {
+        if (getRole(req) !== "guard") {
             return res.status(403).json({
-                message: "Access denied. Guards and admins only.",
+                message: "Only guards can record deliveries.",
             });
         }
 
@@ -81,11 +160,12 @@ export const createDelivery = async (req, res) => {
             pickup_location,
         } = req.body;
 
-        // Validate required fields
         if (
-            !resident_unit?.trim() ||
+            typeof resident_unit !== "string" ||
+            !resident_unit.trim() ||
+            typeof courier_name !== "string" ||
+            !courier_name.trim() ||
             !delivery_type ||
-            !courier_name?.trim() ||
             !pickup_location
         ) {
             return res.status(400).json({
@@ -94,11 +174,15 @@ export const createDelivery = async (req, res) => {
             });
         }
 
-        // Validate delivery type
         const allowedDeliveryTypes = [
             "Package / Parcel",
             "Food Delivery",
             "Courier Service",
+        ];
+
+        const allowedPickupLocations = [
+            "Security Desk",
+            "Locker",
         ];
 
         if (!allowedDeliveryTypes.includes(delivery_type)) {
@@ -107,31 +191,32 @@ export const createDelivery = async (req, res) => {
             });
         }
 
-        // Validate pickup location
-        const allowedPickupLocations = [
-            "Security Desk",
-            "Locker",
-        ];
-
         if (!allowedPickupLocations.includes(pickup_location)) {
             return res.status(400).json({
                 message: "Invalid pickup location.",
             });
         }
 
-        // Get guard name from the authenticated user's account
-        const guardName = [
-            req.user?.first_name,
-            req.user?.last_name,
-        ]
-            .filter(Boolean)
-            .join(" ")
-            .trim();
+        const guard = await getAuthenticatedUser(req);
+
+        if (!guard) {
+            return res.status(401).json({
+                message: "User not found. Please log in again.",
+            });
+        }
+
+        if (String(guard.role).toLowerCase() !== "guard") {
+            return res.status(403).json({
+                message: "Only guards can record deliveries.",
+            });
+        }
+
+        const guardName =
+            `${guard.first_name || ""} ${guard.last_name || ""}`.trim();
 
         if (!guardName) {
             return res.status(400).json({
-                message:
-                    "Unable to identify the logged-in guard. Check the authentication middleware.",
+                message: "Your guard account is missing a name.",
             });
         }
 
@@ -139,9 +224,9 @@ export const createDelivery = async (req, res) => {
             resident_unit: resident_unit.trim(),
             delivery_type,
             courier_name: courier_name.trim(),
-            guard_name: guardName,
             pickup_location,
-            // logged_at is set automatically by the model
+            guard_name: guardName,
+            // logged_at is assigned automatically by the model
         });
 
         return res.status(201).json({
@@ -163,18 +248,19 @@ export const createDelivery = async (req, res) => {
     }
 };
 
-// Update a delivery
+// PUT /api/deliveries/:id
+// Guard only
 export const updateDelivery = async (req, res) => {
     try {
-        if (!isGuardOrAdmin(req)) {
+        if (getRole(req) !== "guard") {
             return res.status(403).json({
-                message: "Access denied. Guards and admins only.",
+                message: "Only guards can update deliveries.",
             });
         }
 
         const { id } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
+        if (!mongoose.isValidObjectId(id)) {
             return res.status(400).json({
                 message: "Invalid delivery ID.",
             });
@@ -187,50 +273,37 @@ export const updateDelivery = async (req, res) => {
             pickup_location,
         } = req.body;
 
-        // Validate required fields
-        if (
-            !resident_unit?.trim() ||
-            !delivery_type ||
-            !courier_name?.trim() ||
-            !pickup_location
-        ) {
-            return res.status(400).json({
-                message:
-                    "Resident unit, delivery type, courier name, and pickup location are required.",
-            });
-        }
-
         const allowedDeliveryTypes = [
             "Package / Parcel",
             "Food Delivery",
             "Courier Service",
         ];
 
-        if (!allowedDeliveryTypes.includes(delivery_type)) {
-            return res.status(400).json({
-                message: "Invalid delivery type.",
-            });
-        }
-
         const allowedPickupLocations = [
             "Security Desk",
             "Locker",
         ];
 
-        if (!allowedPickupLocations.includes(pickup_location)) {
+        if (
+            typeof resident_unit !== "string" ||
+            !resident_unit.trim() ||
+            typeof courier_name !== "string" ||
+            !courier_name.trim() ||
+            !allowedDeliveryTypes.includes(delivery_type) ||
+            !allowedPickupLocations.includes(pickup_location)
+        ) {
             return res.status(400).json({
-                message: "Invalid pickup location.",
+                message: "Please provide valid delivery information.",
             });
         }
 
-        const updatedDelivery = await Delivery.findByIdAndUpdate(
+        const delivery = await Delivery.findByIdAndUpdate(
             id,
             {
                 resident_unit: resident_unit.trim(),
                 delivery_type,
                 courier_name: courier_name.trim(),
                 pickup_location,
-                // Keep original guard_name and logged_at unchanged
             },
             {
                 new: true,
@@ -238,15 +311,16 @@ export const updateDelivery = async (req, res) => {
             }
         );
 
-        if (!updatedDelivery) {
+        if (!delivery) {
             return res.status(404).json({
                 message: "Delivery not found.",
             });
         }
 
+        // Keep the original guard name and logged time
         return res.status(200).json({
             message: "Delivery updated successfully.",
-            delivery: updatedDelivery,
+            delivery,
         });
     } catch (error) {
         console.error("Update delivery error:", error);
@@ -263,26 +337,27 @@ export const updateDelivery = async (req, res) => {
     }
 };
 
-// Delete a delivery
+// DELETE /api/deliveries/:id
+// Guard only
 export const deleteDelivery = async (req, res) => {
     try {
-        if (!isGuardOrAdmin(req)) {
+        if (getRole(req) !== "guard") {
             return res.status(403).json({
-                message: "Access denied. Guards and admins only.",
+                message: "Only guards can delete deliveries.",
             });
         }
 
         const { id } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
+        if (!mongoose.isValidObjectId(id)) {
             return res.status(400).json({
                 message: "Invalid delivery ID.",
             });
         }
 
-        const deletedDelivery = await Delivery.findByIdAndDelete(id);
+        const delivery = await Delivery.findByIdAndDelete(id);
 
-        if (!deletedDelivery) {
+        if (!delivery) {
             return res.status(404).json({
                 message: "Delivery not found.",
             });
