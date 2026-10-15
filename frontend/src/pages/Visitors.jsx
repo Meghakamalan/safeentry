@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { getUserRole } from "../Auth";
+import { getUserRole, getLoggedInUser } from "../Auth";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
 const initialForm = {
     first_name: "",
     last_name: "",
+    unit_number: "",
+    resident_id: "",
     expected_date: new Date().toISOString().split("T")[0],
     expected_time: "10:00",
     vehicle_info: "",
@@ -22,7 +24,16 @@ const Visitors = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const userRole = String(getUserRole() || "").toLowerCase();
+    const loggedInUser = getLoggedInUser();
+
+    const userRole = String(
+        loggedInUser?.role || getUserRole() || ""
+    ).toLowerCase();
+
+    // Your user object stores the unit as "unit", not "unit_number".
+    const residentUnitNumber = String(
+        loggedInUser?.unit ?? ""
+    ).trim();
 
     const isAdmin = userRole === "admin";
     const isResident = userRole === "resident";
@@ -33,6 +44,16 @@ const Visitors = () => {
     const canDeleteVisitor = isResident || isAdmin;
     const isReadOnly = isAdmin;
 
+    // Keep the Resident's unit number synchronized with the account.
+    useEffect(() => {
+        if (isResident && residentUnitNumber) {
+            setFormData((previous) => ({
+                ...previous,
+                unit_number: residentUnitNumber,
+            }));
+        }
+    }, [isResident, residentUnitNumber]);
+
     // Fetch visitors for Residents and Guards.
     const fetchVisitors = useCallback(async () => {
         try {
@@ -42,15 +63,18 @@ const Visitors = () => {
             );
 
             setVisitors(
-                Array.isArray(response.data) ? response.data : []
+                Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.visitors || []
             );
+
             setError(null);
         } catch (error) {
             console.error("Error fetching visitors:", error);
 
             setError(
                 error.response?.data?.message ||
-                    "Failed to fetch visitors. Please try again."
+                "Failed to fetch visitors. Please try again."
             );
         }
     }, []);
@@ -64,20 +88,23 @@ const Visitors = () => {
             );
 
             setAllVisitors(
-                Array.isArray(response.data) ? response.data : []
+                Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.visitors || []
             );
+
             setError(null);
         } catch (error) {
             console.error("Error fetching all visitors:", error);
 
             setError(
                 error.response?.data?.message ||
-                    "Failed to fetch all visitors. Please try again."
+                "Failed to fetch all visitors. Please try again."
             );
         }
     }, []);
 
-    // Fetch the appropriate list based on role.
+    // Refresh the correct visitor list for the current role.
     const refreshVisitors = useCallback(async () => {
         if (isAdmin) {
             await fetchAllVisitors();
@@ -92,24 +119,35 @@ const Visitors = () => {
 
     const displayedVisitors = isAdmin ? allVisitors : visitors;
 
-    // Handle form input changes.
+    // Handle input changes.
     const onChange = (e) => {
         if (isReadOnly) return;
 
         const { name, value } = e.target;
 
-        setFormData((previousForm) => ({
-            ...previousForm,
+        // Residents cannot change their assigned unit.
+        if (isResident && name === "unit_number") return;
+
+        setFormData((previous) => ({
+            ...previous,
             [name]: value,
         }));
     };
 
-    // Open form for creating a visitor.
+    // Open the form for creating a visitor.
     const handleAddNew = () => {
         if (!canAddVisitor) return;
 
+        if (isResident && !residentUnitNumber) {
+            setError(
+                "Your account has no registered unit. Please sign in again or contact your administrator."
+            );
+            return;
+        }
+
         setFormData({
             ...initialForm,
+            unit_number: isResident ? residentUnitNumber : "",
             expected_date: new Date().toISOString().split("T")[0],
         });
 
@@ -118,18 +156,20 @@ const Visitors = () => {
         setShowForm(true);
     };
 
-    // Open a visitor in read-only mode for Admin.
+    // Open an existing visitor in Admin read-only mode.
     const handleView = (visitor) => {
         if (!isAdmin) return;
 
-        const formattedDate = visitor.expected_date
-            ? new Date(visitor.expected_date).toISOString().split("T")[0]
-            : "";
-
         setFormData({
+            ...initialForm,
             first_name: visitor.first_name || "",
             last_name: visitor.last_name || "",
-            expected_date: formattedDate,
+            unit_number: visitor.unit_number || "",
+            resident_id: visitor.resident_id?._id ||
+                visitor.resident_id || "",
+            expected_date: visitor.expected_date
+                ? String(visitor.expected_date).split("T")[0]
+                : "",
             expected_time: visitor.expected_time || "10:00",
             vehicle_info: visitor.vehicle_info || "",
         });
@@ -139,23 +179,30 @@ const Visitors = () => {
         setShowForm(true);
     };
 
-    // Open form for editing a visitor. Residents only.
+    // Edit a visitor. Residents only.
     const handleEdit = (visitor) => {
         if (!canEditVisitor) return;
 
-        const formattedDate = visitor.expected_date
-            ? new Date(visitor.expected_date).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0];
+        if (!residentUnitNumber) {
+            setError(
+                "Your account has no registered unit. Please contact your administrator."
+            );
+            return;
+        }
 
         setFormData({
+            ...initialForm,
             first_name: visitor.first_name || "",
             last_name: visitor.last_name || "",
-            expected_date: formattedDate,
+            unit_number: residentUnitNumber,
+            expected_date: visitor.expected_date
+                ? String(visitor.expected_date).split("T")[0]
+                : new Date().toISOString().split("T")[0],
             expected_time: visitor.expected_time || "10:00",
             vehicle_info: visitor.vehicle_info || "",
         });
 
-        setEditingId(visitor._id);
+        setEditingId(visitor._id || visitor.id);
         setError(null);
         setShowForm(true);
     };
@@ -171,9 +218,10 @@ const Visitors = () => {
         try {
             setError(null);
 
-            await axios.delete(`${API_URL}/api/visitors/${id}`, {
-                withCredentials: true,
-            });
+            await axios.delete(
+                `${API_URL}/api/visitors/${id}`,
+                { withCredentials: true }
+            );
 
             await refreshVisitors();
         } catch (error) {
@@ -181,36 +229,96 @@ const Visitors = () => {
 
             setError(
                 error.response?.data?.message ||
-                    "Failed to delete visitor. Please try again."
+                "Failed to delete visitor. Please try again."
             );
         }
     };
 
-    // Submit form to create or update a visitor.
+    // Guard can update visitor status.
+    const handleStatusChange = async (visitorId, newStatus) => {
+        if (!isGuard) return;
+
+        const allowedStatuses = [
+            "Pending",
+            "Checked-In",
+            "Checked-Out",
+            "Cancelled",
+        ];
+
+        if (!allowedStatuses.includes(newStatus)) {
+            setError("Invalid visitor status.");
+            return;
+        }
+
+        try {
+            setError(null);
+
+            await axios.patch(
+                `${API_URL}/api/visitors/${visitorId}/status`,
+                { status: newStatus },
+                { withCredentials: true }
+            );
+
+            await refreshVisitors();
+        } catch (error) {
+            console.error("Failed to update visitor status:", error);
+
+            setError(
+                error.response?.data?.message ||
+                "Failed to update visitor status. Please try again."
+            );
+        }
+    };
+
+    // Create or update a visitor.
     const onSubmit = async (e) => {
         e.preventDefault();
 
-        // Admin is only allowed to view and delete.
-        if (!canAddVisitor && !canEditVisitor) return;
+        if (loading) return;
+
+        if (editingId && !canEditVisitor) return;
+        if (!editingId && !canAddVisitor) return;
+
+        if (isResident && !residentUnitNumber) {
+            setError(
+                "Your account has no registered unit. Please sign in again or contact your administrator."
+            );
+            return;
+        }
+
+        if (isGuard && !formData.resident_id.trim()) {
+            setError(
+                "Please enter the resident's account ID as required by the backend."
+            );
+            return;
+        }
+
+        if (isGuard && !formData.unit_number.trim()) {
+            setError("Please enter the resident's unit number.");
+            return;
+        }
 
         setLoading(true);
         setError(null);
 
         try {
-            if (editingId) {
-                if (!canEditVisitor) return;
+            const submissionData = {
+                ...formData,
+                unit_number: isResident
+                    ? residentUnitNumber
+                    : formData.unit_number.trim(),
+            };
 
+            if (editingId) {
                 await axios.put(
                     `${API_URL}/api/visitors/${editingId}`,
-                    formData,
+                    submissionData,
                     { withCredentials: true }
                 );
             } else {
-                if (!canAddVisitor) return;
-
                 await axios.post(
                     `${API_URL}/api/visitors`,
-                    formData,
+                    submissionData,
                     { withCredentials: true }
                 );
             }
@@ -225,14 +333,13 @@ const Visitors = () => {
 
             setError(
                 error.response?.data?.message ||
-                    "Failed to save visitor. Please try again."
+                "Failed to save visitor. Please try again."
             );
         } finally {
             setLoading(false);
         }
     };
 
-    // Format date for table display.
     const formatDateDisplay = (dateString) => {
         if (!dateString) return "—";
 
@@ -247,22 +354,32 @@ const Visitors = () => {
         });
     };
 
-    // Style status badges.
     const getStatusBadge = (status) => {
-        if (status === "Checked-In") {
-            return "bg-success text-white";
+        switch (status) {
+            case "Checked-In":
+                return "bg-success text-white";
+            case "Checked-Out":
+                return "bg-secondary text-white";
+            case "Cancelled":
+                return "bg-danger text-white";
+            case "Pending":
+            default:
+                return "bg-warning text-dark";
         }
+    };
 
-        if (status === "Checked-Out") {
-            return "bg-secondary text-white";
-        }
-
-        return "bg-light text-dark border";
+    const closeForm = () => {
+        setShowForm(false);
+        setEditingId(null);
+        setFormData({
+            ...initialForm,
+            unit_number: isResident ? residentUnitNumber : "",
+        });
+        setError(null);
     };
 
     return (
         <div className="container-fluid py-2">
-            {/* Header */}
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h1
                     className="h3 fw-bold text-secondary"
@@ -272,8 +389,8 @@ const Visitors = () => {
                         ? isAdmin
                             ? "View Visitor"
                             : editingId
-                              ? "Edit Visitor"
-                              : "Register New Visitor"
+                                ? "Edit Visitor"
+                                : "Register New Visitor"
                         : "Visitors"}
                 </h1>
 
@@ -298,20 +415,15 @@ const Visitors = () => {
                 </div>
             )}
 
-            {/* Visitor Form / Admin Read-Only View */}
             {showForm ? (
                 <div className="d-flex justify-content-center mt-3">
                     <div className="w-100" style={{ maxWidth: "600px" }}>
                         <form onSubmit={onSubmit}>
                             <div className="row g-3">
                                 <div className="col-6">
-                                    <label
-                                        htmlFor="first_name"
-                                        className="form-label fw-semibold"
-                                    >
+                                    <label htmlFor="first_name" className="form-label fw-semibold">
                                         First Name
                                     </label>
-
                                     <input
                                         id="first_name"
                                         type="text"
@@ -325,13 +437,9 @@ const Visitors = () => {
                                 </div>
 
                                 <div className="col-6">
-                                    <label
-                                        htmlFor="last_name"
-                                        className="form-label fw-semibold"
-                                    >
+                                    <label htmlFor="last_name" className="form-label fw-semibold">
                                         Last Name
                                     </label>
-
                                     <input
                                         id="last_name"
                                         type="text"
@@ -345,13 +453,63 @@ const Visitors = () => {
                                 </div>
 
                                 <div className="col-12">
-                                    <label
-                                        htmlFor="expected_date"
-                                        className="form-label fw-semibold"
-                                    >
+                                    <label htmlFor="unit_number" className="form-label fw-semibold">
+                                        Unit Number
+                                    </label>
+                                    <input
+                                        id="unit_number"
+                                        type="text"
+                                        name="unit_number"
+                                        className="form-control"
+                                        placeholder={
+                                            isResident
+                                                ? "Your registered unit"
+                                                : "e.g. 1205"
+                                        }
+                                        value={formData.unit_number}
+                                        onChange={onChange}
+                                        readOnly={isReadOnly || isResident}
+                                        required
+                                    />
+
+                                    {isResident && (
+                                        <small className="text-muted">
+                                            Your registered unit is filled in automatically.
+                                        </small>
+                                    )}
+
+                                    {isGuard && (
+                                        <small className="text-muted">
+                                            Enter the resident's unit number.
+                                        </small>
+                                    )}
+                                </div>
+
+                                {isGuard && (
+                                    <div className="col-12">
+                                        <label htmlFor="resident_id" className="form-label fw-semibold">
+                                            Resident Account ID
+                                        </label>
+                                        <input
+                                            id="resident_id"
+                                            type="text"
+                                            name="resident_id"
+                                            className="form-control"
+                                            value={formData.resident_id}
+                                            onChange={onChange}
+                                            placeholder="Enter the resident's MongoDB user ID"
+                                            required
+                                        />
+                                        <small className="text-muted">
+                                            The backend requires the resident's account ID to link the visitor to the correct resident.
+                                        </small>
+                                    </div>
+                                )}
+
+                                <div className="col-12">
+                                    <label htmlFor="expected_date" className="form-label fw-semibold">
                                         Expected Date
                                     </label>
-
                                     <input
                                         id="expected_date"
                                         type="date"
@@ -365,13 +523,9 @@ const Visitors = () => {
                                 </div>
 
                                 <div className="col-12">
-                                    <label
-                                        htmlFor="expected_time"
-                                        className="form-label fw-semibold"
-                                    >
+                                    <label htmlFor="expected_time" className="form-label fw-semibold">
                                         Expected Time
                                     </label>
-
                                     <input
                                         id="expected_time"
                                         type="time"
@@ -385,13 +539,9 @@ const Visitors = () => {
                                 </div>
 
                                 <div className="col-12">
-                                    <label
-                                        htmlFor="vehicle_info"
-                                        className="form-label fw-semibold"
-                                    >
+                                    <label htmlFor="vehicle_info" className="form-label fw-semibold">
                                         Vehicle Info
                                     </label>
-
                                     <textarea
                                         id="vehicle_info"
                                         name="vehicle_info"
@@ -401,27 +551,23 @@ const Visitors = () => {
                                         value={formData.vehicle_info}
                                         onChange={onChange}
                                         readOnly={isReadOnly}
-                                        required
                                     />
                                 </div>
                             </div>
 
-                            {/* Form Buttons */}
                             <div className="d-flex gap-3 mt-4">
                                 {!isReadOnly && (
                                     <button
                                         type="submit"
                                         className="btn text-white flex-grow-1"
-                                        style={{
-                                            backgroundColor: "#695e59",
-                                        }}
+                                        style={{ backgroundColor: "#695e59" }}
                                         disabled={loading}
                                     >
                                         {loading
                                             ? "Submitting..."
                                             : editingId
-                                              ? "Save Changes"
-                                              : "Submit"}
+                                                ? "Save Changes"
+                                                : "Submit"}
                                     </button>
                                 )}
 
@@ -429,12 +575,7 @@ const Visitors = () => {
                                     type="button"
                                     className="btn text-white flex-grow-1"
                                     style={{ backgroundColor: "#ca5c5c" }}
-                                    onClick={() => {
-                                        setShowForm(false);
-                                        setEditingId(null);
-                                        setFormData(initialForm);
-                                        setError(null);
-                                    }}
+                                    onClick={closeForm}
                                     disabled={loading}
                                 >
                                     {isReadOnly ? "Close" : "Cancel"}
@@ -444,31 +585,18 @@ const Visitors = () => {
                     </div>
                 </div>
             ) : (
-                /* Visitors Table */
                 <div className="table-responsive">
                     <table className="table align-middle text-center">
                         <thead style={{ backgroundColor: "#ede6e2" }}>
                             <tr>
-                                <th scope="col" className="py-3">
-                                    Visitor Name
-                                </th>
-                                <th scope="col" className="py-3">
-                                    Date
-                                </th>
-                                <th scope="col" className="py-3">
-                                    Time
-                                </th>
-                                <th scope="col" className="py-3">
-                                    Vehicle Info
-                                </th>
-                                <th scope="col" className="py-3">
-                                    Status
-                                </th>
-
-                                {(canEditVisitor || canDeleteVisitor) && (
-                                    <th scope="col" className="py-3">
-                                        Action
-                                    </th>
+                                <th className="py-3">Visitor Name</th>
+                                <th className="py-3">Unit Number</th>
+                                <th className="py-3">Date</th>
+                                <th className="py-3">Time</th>
+                                <th className="py-3">Vehicle Info</th>
+                                <th className="py-3">Status</th>
+                                {(canEditVisitor || canDeleteVisitor || isAdmin) && (
+                                    <th className="py-3">Action</th>
                                 )}
                             </tr>
                         </thead>
@@ -478,10 +606,8 @@ const Visitors = () => {
                                 <tr>
                                     <td
                                         colSpan={
-                                            5 +
-                                            (canEditVisitor || canDeleteVisitor
-                                                ? 1
-                                                : 0)
+                                            6 +
+                                            (canEditVisitor || canDeleteVisitor || isAdmin ? 1 : 0)
                                         }
                                         className="py-4 text-muted"
                                     >
@@ -490,51 +616,53 @@ const Visitors = () => {
                                 </tr>
                             ) : (
                                 displayedVisitors.map((visitor) => (
-                                    <tr key={visitor._id}>
+                                    <tr key={visitor._id || visitor.id}>
                                         <td>
-                                            {visitor.first_name}{" "}
-                                            {visitor.last_name}
+                                            {visitor.first_name} {visitor.last_name}
                                         </td>
-
-                                        <td>
-                                            {formatDateDisplay(
-                                                visitor.expected_date
-                                            )}
-                                        </td>
-
+                                        <td>{visitor.unit_number || "—"}</td>
+                                        <td>{formatDateDisplay(visitor.expected_date)}</td>
                                         <td>{visitor.expected_time || "—"}</td>
-
                                         <td style={{ whiteSpace: "pre-line" }}>
                                             {visitor.vehicle_info || "—"}
                                         </td>
-
                                         <td>
-                                            <span
-                                                className={`badge px-3 py-2 rounded-pill ${getStatusBadge(
-                                                    visitor.status
-                                                )}`}
-                                            >
-                                                {visitor.status || "Pending"}
-                                            </span>
+                                            {isGuard ? (
+                                                <select
+                                                    className="form-select form-select-sm"
+                                                    value={visitor.status || "Pending"}
+                                                    onChange={(e) =>
+                                                        handleStatusChange(
+                                                            visitor._id || visitor.id,
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    aria-label={`Update status for ${visitor.first_name} ${visitor.last_name}`}
+                                                    style={{ minWidth: "140px" }}
+                                                >
+                                                    <option value="Pending">Pending</option>
+                                                    <option value="Checked-In">Checked-In</option>
+                                                    <option value="Checked-Out">Checked-Out</option>
+                                                    <option value="Cancelled">Cancelled</option>
+                                                </select>
+                                            ) : (
+                                                <span
+                                                    className={`badge px-3 py-2 rounded-pill ${getStatusBadge(visitor.status)}`}
+                                                >
+                                                    {visitor.status || "Pending"}
+                                                </span>
+                                            )}
                                         </td>
 
-                                        {(canEditVisitor ||
-                                            canDeleteVisitor) && (
+                                        {(canEditVisitor || canDeleteVisitor || isAdmin) && (
                                             <td>
                                                 <div className="d-flex justify-content-center gap-2">
                                                     {isAdmin && (
                                                         <button
                                                             type="button"
                                                             className="btn btn-sm text-white px-3"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    "#4155c7",
-                                                            }}
-                                                            onClick={() =>
-                                                                handleView(
-                                                                    visitor
-                                                                )
-                                                            }
+                                                            style={{ backgroundColor: "#4155c7" }}
+                                                            onClick={() => handleView(visitor)}
                                                         >
                                                             View
                                                         </button>
@@ -544,15 +672,8 @@ const Visitors = () => {
                                                         <button
                                                             type="button"
                                                             className="btn btn-sm text-white px-3"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    "#5f6368",
-                                                            }}
-                                                            onClick={() =>
-                                                                handleEdit(
-                                                                    visitor
-                                                                )
-                                                            }
+                                                            style={{ backgroundColor: "#5f6368" }}
+                                                            onClick={() => handleEdit(visitor)}
                                                         >
                                                             Edit
                                                         </button>
@@ -562,14 +683,9 @@ const Visitors = () => {
                                                         <button
                                                             type="button"
                                                             className="btn btn-sm text-white px-3"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    "#ca5c5c",
-                                                            }}
+                                                            style={{ backgroundColor: "#ca5c5c" }}
                                                             onClick={() =>
-                                                                handleDelete(
-                                                                    visitor._id
-                                                                )
+                                                                handleDelete(visitor._id || visitor.id)
                                                             }
                                                         >
                                                             Delete

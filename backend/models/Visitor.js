@@ -1,39 +1,61 @@
-import mangoose from "mongoose";
-const visitorSchema = new mangoose.Schema(
-    {
-        //link visitor log to logged in resident
-        resident_id: {
-            type: mangoose.Schema.Types.ObjectId,
-            ref: "User",
-            required: true,
-        },
-        first_name: {
-            type: String,
-            required: true,
-        },
-        last_name: {
-            type: String,
-            required: true,
-        },
-        expected_date: {
-            type: Date,
-            required: true,
-        },
-        expected_time: {
-            type: String,//formated time string
-            required: true,
-        },
-        vehicle_info: {
-            type: String,
-            required: false,
-        },
-        status: {
-            type: String,
-            enum: ["Pending", "Checked-In", "Checked-Out", "pending", "checked-in", "checked-out"],
-            default: "Pending", //default status
-        },
+import mongoose from "mongoose";
 
+const visitorSchema = new mongoose.Schema(
+  {
+    // Link visitor record to the resident's account
+    resident_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    { timestamps: true }
+
+    // Resident's unit number
+    unit_number: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    first_name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    last_name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    expected_date: {
+      type: Date,
+      required: true,
+    },
+
+    expected_time: {
+      type: String,
+      required: true,
+    },
+
+    vehicle_info: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "Pending",
+        "Checked-In",
+        "Checked-Out",
+        "Cancelled",
+      ],
+      default: "Pending",
+    },
+  },
+  { timestamps: true }
 );
-export default mangoose.model("Visitor", visitorSchema);
+
+export default mongoose.model("Visitor", visitorSchema);

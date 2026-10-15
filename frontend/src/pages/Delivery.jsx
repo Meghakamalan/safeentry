@@ -21,6 +21,7 @@ const initialForm = {
 
 export default function Delivery() {
     const user = getLoggedInUser();
+    console.log("Logged-in user:", user);
 
     const role = String(user?.role || "").toLowerCase();
     const isGuard = role === "guard";

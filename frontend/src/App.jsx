@@ -10,6 +10,7 @@ import Maintenance from "./pages/Maintenance";
 import Announcements from "./pages/Announcement";
 import Users from "./pages/Users";
 import Delivery from "./pages/Delivery";
+import Profile from "./pages/Profile";
 
 
 function App() {
@@ -30,7 +31,9 @@ function App() {
           <Route path="/announcements" element={<Announcements />} />
           <Route path="/deliveries" element={<Delivery/>} />
           <Route path="/users" element={<Users />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
+
       </Routes>
     </BrowserRouter>
   );
