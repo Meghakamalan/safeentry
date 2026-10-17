@@ -339,8 +339,7 @@ export const updateVisitorStatus = async (req, res) => {
 
     if (!["guard", "admin"].includes(role)) {
       return res.status(403).json({
-        message:
-          "Only Guards and Admins can update visitor status",
+        message: "Only Guards and Admins can update visitor status",
       });
     }
 
@@ -357,7 +356,12 @@ export const updateVisitorStatus = async (req, res) => {
       });
     }
 
-    const visitor = await Visitor.findById(id);
+    // Use findByIdAndUpdate to bypass full schema validation errors on legacy records
+    const visitor = await Visitor.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true }
+    );
 
     if (!visitor) {
       return res.status(404).json({
@@ -365,27 +369,23 @@ export const updateVisitorStatus = async (req, res) => {
       });
     }
 
-    visitor.status = status;
-    await visitor.save();
-
     return res.status(200).json({
       message: "Visitor status updated successfully",
       visitor,
     });
   } catch (error) {
     console.error("Update Visitor Status Error:", error);
-
     if (error.name === "CastError") {
       return res.status(400).json({
         message: "Invalid visitor ID",
       });
     }
-
     return res.status(500).json({
-      message: "Error updating visitor status",
+      message: error.message || "Error updating visitor status",
     });
   }
 };
+
 
 // DELETE: Delete a visitor
 export const deleteVisitor = async (req, res) => {
