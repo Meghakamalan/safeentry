@@ -103,21 +103,19 @@ export const getAllVisitors = async (req, res) => {
 };
 
 // POST: Create a visitor
+
+// POST: Create a visitor
 export const createVisitor = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?._id;
     const role = String(req.user?.role || "").toLowerCase();
 
     if (!userId) {
-      return res.status(401).json({
-        message: "User not authenticated",
-      });
+      return res.status(401).json({ message: "User not authenticated" });
     }
 
     if (!["resident", "guard", "admin"].includes(role)) {
-      return res.status(403).json({
-        message: "Access denied",
-      });
+      return res.status(403).json({ message: "Access denied" });
     }
 
     const {
@@ -135,8 +133,7 @@ export const createVisitor = async (req, res) => {
       !expected_time
     ) {
       return res.status(400).json({
-        message:
-          "First name, last name, expected date, and expected time are required",
+        message: "First name, last name, expected date, and expected time are required",
       });
     }
 
@@ -144,71 +141,43 @@ export const createVisitor = async (req, res) => {
     let unitNumber;
 
     if (role === "resident") {
-      // Always use the authenticated resident's database record.
-      const resident = await User.findById(userId)
-        .select("unit unit_number");
+      const resident = await User.findById(userId).select("unit unit_number");
+      if (!resident) {
+        return res.status(404).json({ message: "Resident account not found" });
+      }
+      const assignedUnit = resident.unit ?? resident.unit_number;
+      if (!assignedUnit || !String(assignedUnit).trim()) {
+        return res.status(400).json({
+          message: "Your account does not have a unit number assigned",
+        });
+      }
+      residentId = resident._id;
+      unitNumber = String(assignedUnit).trim();
+    } else {
+      // Guard / Admin flow: resolve residentId using unit_number
+      unitNumber = String(req.body.unit_number || "").trim();
+
+      if (!unitNumber) {
+        return res.status(400).json({ message: "Unit number is required" });
+      }
+
+      // Look up resident by unit number
+      const resident = await User.findOne({
+        $or: [{ unit_number: unitNumber }, { unit: unitNumber }],
+      });
 
       if (!resident) {
         return res.status(404).json({
-          message: "Resident account not found",
-        });
-      }
-
-      // Support either field name in the User schema.
-      const assignedUnit =
-        resident.unit ?? resident.unit_number;
-
-      if (
-        assignedUnit === undefined ||
-        assignedUnit === null ||
-        String(assignedUnit).trim() === ""
-      ) {
-        console.error("Resident has no unit assigned:", {
-          userId: String(userId),
-          unit: resident.unit,
-          unit_number: resident.unit_number,
-        });
-
-        return res.status(400).json({
-          message:
-            "Your account does not have a unit number assigned",
+          message: `No resident account found for unit number ${unitNumber}`,
         });
       }
 
       residentId = resident._id;
-      unitNumber = String(assignedUnit).trim();
-    } else {
-      // Guards/Admins must identify the resident account.
-      residentId = req.body.resident_id;
-      unitNumber = String(req.body.unit_number || "").trim();
-
-      if (!residentId) {
-        return res.status(400).json({
-          message: "resident_id is required",
-        });
-      }
-
-      if (!unitNumber) {
-        return res.status(400).json({
-          message: "Unit number is required",
-        });
-      }
-
-      const resident = await User.findById(residentId);
-
-      if (!resident) {
-        return res.status(404).json({
-          message: "Resident account not found",
-        });
-      }
     }
 
     const parsedDate = new Date(expected_date);
-
     if (Number.isNaN(parsedDate.getTime())) {
-      return res.status(400).json({
-        message: "Invalid expected date",
-      });
+      return res.status(400).json({ message: "Invalid expected date" });
     }
 
     const newVisitor = new Visitor({
@@ -230,21 +199,10 @@ export const createVisitor = async (req, res) => {
     });
   } catch (error) {
     console.error("Create Visitor Error:", error);
-
-    if (
-      error.name === "ValidationError" ||
-      error.name === "CastError"
-    ) {
-      return res.status(400).json({
-        message: error.message,
-      });
-    }
-
-    return res.status(500).json({
-      message: "Error creating visitor",
-    });
+    return res.status(500).json({ message: "Error creating visitor" });
   }
 };
+
 
 // PUT: Update a visitor
 export const updateVisitor = async (req, res) => {

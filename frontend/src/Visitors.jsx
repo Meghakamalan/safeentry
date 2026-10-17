@@ -320,94 +320,73 @@ const Visitors = () => {
 
     // Create or update a visitor.
     const onSubmit = async (e) => {
-        e.preventDefault();
+  e.preventDefault();
+  if (loading) return;
+  if (editingId && !canEditVisitor) return;
+  if (!editingId && !canAddVisitor) return;
 
-        if (loading) return;
+  const unitNumber = isResident
+    ? getResidentUnit()
+    : String(formData.unit_number || "").trim();
 
-        if (editingId && !canEditVisitor) return;
-        if (!editingId && !canAddVisitor) return;
+  if (isResident && !unitNumber) {
+    setError("Your account does not have a unit number assigned.");
+    return;
+  }
 
-        const unitNumber = isResident
-            ? getResidentUnit()
-            : String(formData.unit_number || "").trim();
+  // Check unit number for Guards (without requiring resident_id)
+  if (isGuard && !unitNumber) {
+    setError("Please enter the resident's unit number.");
+    return;
+  }
 
-        if (isResident && !unitNumber) {
-            setError("Your account does not have a unit number assigned.");
-            return;
-        }
+  if (!formData.first_name.trim() || !formData.last_name.trim()) {
+    setError("Please enter the visitor's first and last name.");
+    return;
+  }
 
-        if (isGuard && !String(formData.resident_id || "").trim()) {
-            setError("Please enter the resident's account ID.");
-            return;
-        }
+  if (!formData.expected_date || !formData.expected_time) {
+    setError("Please select the expected date and time.");
+    return;
+  }
 
-        if (isGuard && !String(formData.unit_number || "").trim()) {
-            setError("Please enter the resident's unit number.");
-            return;
-        }
+  setLoading(true);
+  setError(null);
 
-        if (
-            !formData.first_name.trim() ||
-            !formData.last_name.trim()
-        ) {
-            setError("Please enter the visitor's first and last name.");
-            return;
-        }
-
-        if (!formData.expected_date || !formData.expected_time) {
-            setError("Please select the expected date and time.");
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-
-        try {
-            const submissionData = {
-                ...formData,
-                unit_number: unitNumber,
-                resident_id: isResident
-                    ? residentId
-                    : formData.resident_id,
-            };
-
-            console.log("Submitting visitor:", submissionData);
-
-            if (editingId) {
-                await axios.put(
-                    `${API_URL}/api/visitors/${editingId}`,
-                    submissionData,
-                    { withCredentials: true }
-                );
-            } else {
-                await axios.post(
-                    `${API_URL}/api/visitors`,
-                    submissionData,
-                    { withCredentials: true }
-                );
-            }
-
-            await refreshVisitors();
-
-            setShowForm(false);
-            setFormData({
-                ...initialForm,
-                unit_number: isResident ? getResidentUnit() : "",
-                resident_id: isResident ? residentId : "",
-            });
-            setEditingId(null);
-        } catch (error) {
-            console.error("Error saving visitor:", error);
-
-            setError(
-                error.response?.data?.message ||
-                error.response?.data?.error ||
-                "Failed to save visitor. Please try again."
-            );
-        } finally {
-            setLoading(false);
-        }
+  try {
+    const submissionData = {
+      ...formData,
+      unit_number: unitNumber,
     };
+
+    if (editingId) {
+      await axios.put(
+        `${API_URL}/api/visitors/${editingId}`,
+        submissionData,
+        { withCredentials: true }
+      );
+    } else {
+      await axios.post(
+        `${API_URL}/api/visitors`,
+        submissionData,
+        { withCredentials: true }
+      );
+    }
+
+    await refreshVisitors();
+    setShowForm(false);
+    setFormData(initialForm);
+    setEditingId(null);
+  } catch (error) {
+    console.error("Error saving visitor:", error);
+    setError(
+      error.response?.data?.message ||
+      "Failed to save visitor. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
     const formatDateDisplay = (dateString) => {
         if (!dateString) return "—";
@@ -558,7 +537,7 @@ const Visitors = () => {
                                     )}
                                 </div>
 
-                                {isGuard && (
+                                {/* {isGuard && (
                                     <div className="col-12">
                                         <label
                                             htmlFor="resident_id"
@@ -577,7 +556,7 @@ const Visitors = () => {
                                             required
                                         />
                                     </div>
-                                )}
+                                )} */}
 
                                 <div className="col-12">
                                     <label
