@@ -1,4 +1,3 @@
-
 import Maintenance from "../models/Maintenance.js";
 
 // Get the logged-in user's ID and role.
@@ -8,7 +7,7 @@ const getUserRole = (req) =>
     String(req.user?.role || "").toLowerCase();
 
 // Allowed statuses for maintenance requests.
-const allowedStatuses = ["Review", "Assign", "Resolved"];
+const allowedStatuses = ["Submitted", "Review", "Assign", "Resolved"];
 
 // GET: Fetch maintenance requests based on the user's role.
 export const getMaintenanceRequest = async (req, res) => {
@@ -113,7 +112,7 @@ export const createMaintenanceRequest = async (req, res) => {
             request_date: request_date
                 ? new Date(request_date)
                 : new Date(),
-            status: "Review",
+            status: "Submitted",
         });
 
         return res.status(201).json({

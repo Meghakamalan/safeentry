@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { getUserRole } from "../Auth";
+import ConfirmModal from '../componets/ConfirmModel';
 
 const API_URL = import.meta.env.VITE_API_URL || "";
-import ConfirmModal from '../componets/ConfirmModel';
 
 const initialForm = {
     issue_type: "Door Latch Problem",
@@ -11,7 +11,7 @@ const initialForm = {
     request_date: new Date().toISOString().split("T")[0],
 };
 
-const statusOptions = ["Review", "Assign", "Resolved"];
+const statusOptions = ["Submitted", "Review", "Assign", "Resolved"];
 
 export default function Maintenance() {
     const [requests, setRequests] = useState([]);
@@ -249,7 +249,12 @@ export default function Maintenance() {
             return "bg-secondary text-white";
         }
 
-        return "bg-warning text-dark";
+        if (normalizedStatus === "review") {
+            return "bg-warning text-dark";
+        }
+
+        // "Submitted" (the default for new requests)
+        return "bg-info text-dark";
     };
 
     // Match existing status values to the dropdown options
@@ -273,7 +278,11 @@ export default function Maintenance() {
             return "Assign";
         }
 
-        return "Review";
+        if (normalizedStatus === "review") {
+            return "Review";
+        }
+
+        return "Submitted";
     };
 
     // Format dates for display
@@ -603,8 +612,7 @@ export default function Maintenance() {
                                                                 ticket.status
                                                             )}`}
                                                         >
-                                                            {ticket.status ||
-                                                                "Review"}
+                                                            {ticket.status || "Submitted"}
                                                         </span>
                                                     </td>
 

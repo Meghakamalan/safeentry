@@ -60,7 +60,7 @@ const Sidebar = () => {
                         <>
                             <li className="nav-item">
                                 <NavLink to="/home" className={linkClass}>
-                                    Homes
+                                    Home
                                 </NavLink>
                             </li>
 
@@ -148,7 +148,7 @@ const Sidebar = () => {
                         <>
                             <li className="nav-item">
                                 <NavLink to="/home" className={linkClass}>
-                                    Homes
+                                    Home
                                 </NavLink>
                             </li>
                             <li className="nav-item">
