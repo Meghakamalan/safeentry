@@ -1,7 +1,7 @@
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { getUserRole } from "../Auth";
+import ConfirmModal from '../componets/ConfirmModel';
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -18,6 +18,8 @@ export default function Announcements() {
     const [saving, setSaving] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [error, setError] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Fetch announcements from the backend.
     const fetchAnnouncements = async () => {
@@ -128,12 +130,12 @@ export default function Announcements() {
     };
 
     // Delete an announcement.
-    const handleDelete = async (id) => {
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this announcement?"
-        );
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
 
-        if (!confirmed) return;
+        const id = deleteTarget._id;
+
+        setDeleting(true);
 
         try {
             setError("");
@@ -153,6 +155,9 @@ export default function Announcements() {
                 err.response?.data?.message ||
                     "Unable to delete announcement."
             );
+        } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
         }
     };
 
@@ -378,11 +383,7 @@ export default function Announcements() {
                                                     <button
                                                         type="button"
                                                         className="btn btn-sm btn-outline-danger"
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                announcement._id
-                                                            )
-                                                        }
+                                                        onClick={() => setDeleteTarget(announcement)}
                                                     >
                                                         Delete
                                                     </button>
@@ -396,6 +397,22 @@ export default function Announcements() {
                     )}
                 </>
             )}
+
+            <ConfirmModal
+                show={!!deleteTarget}
+                title="Delete announcement"
+                message={
+                    <>
+                        Are you sure you want to delete{" "}
+                        <strong>{deleteTarget?.title}</strong>? This cannot be
+                        undone.
+                    </>
+                }
+                confirmText="Delete"
+                loading={deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 }

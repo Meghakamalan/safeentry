@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { getUserRole } from "../Auth";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
+import ConfirmModal from '../componets/ConfirmModel';
 
 const initialForm = {
     issue_type: "Door Latch Problem",
@@ -21,6 +21,8 @@ export default function Maintenance() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const userRole = String(getUserRole() || "").toLowerCase();
 
@@ -170,21 +172,18 @@ export default function Maintenance() {
     };
 
     // Delete a maintenance request
-    const handleDelete = async (id) => {
-        if (!isResident && !isAdmin) return;
+    const confirmDelete = async () => {
+        if (!deleteTarget || (!isResident && !isAdmin)) return;
 
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this maintenance request?"
-        );
-
-        if (!confirmed) return;
+        setDeleting(true);
 
         try {
             setError("");
 
-            await axios.delete(`${API_URL}/api/maintenance/${id}`, {
-                withCredentials: true,
-            });
+            await axios.delete(
+                `${API_URL}/api/maintenance/${deleteTarget._id}`,
+                { withCredentials: true }
+            );
 
             await fetchMaintenance();
         } catch (error) {
@@ -194,6 +193,9 @@ export default function Maintenance() {
                 error.response?.data?.message ||
                     "Failed to delete the maintenance request."
             );
+        } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
         }
     };
 
@@ -684,11 +686,7 @@ export default function Maintenance() {
                                                                                 backgroundColor:
                                                                                     "#ca5c5c",
                                                                             }}
-                                                                            onClick={() =>
-                                                                                handleDelete(
-                                                                                    ticket._id
-                                                                                )
-                                                                            }
+                                                                            onClick={() => setDeleteTarget(ticket)}
                                                                         >
                                                                             Delete
                                                                         </button>
@@ -718,11 +716,7 @@ export default function Maintenance() {
                                                                                 backgroundColor:
                                                                                     "#ca5c5c",
                                                                             }}
-                                                                            onClick={() =>
-                                                                                handleDelete(
-                                                                                    ticket._id
-                                                                                )
-                                                                            }
+                                                                            onClick={() => setDeleteTarget(ticket)}
                                                                         >
                                                                             Delete
                                                                         </button>
@@ -741,6 +735,24 @@ export default function Maintenance() {
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                show={!!deleteTarget}
+                title="Delete maintenance request"
+                message={
+                    <>
+                        Are you sure you want to delete this{" "}
+                        <strong>
+                            {deleteTarget?.issue_type || "maintenance"}
+                        </strong>{" "}
+                        request? This cannot be undone.
+                    </>
+                }
+                confirmText="Delete"
+                loading={deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 }

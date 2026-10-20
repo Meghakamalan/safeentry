@@ -17,10 +17,7 @@ import Home from "./pages/Home";
 function App() {
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
-console.log("Saved user:", user);
-console.log("Unit:", user?.unit);
-console.log("Unit number:", user?.unit_number);
-console.log("Role:", user?.role);
+
   return (
     <BrowserRouter>
       <Routes>

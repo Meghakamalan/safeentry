@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { getUserRole, getLoggedInUser } from "../Auth";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
+import ConfirmModal from '../componets/ConfirmModel';
 
 const initialForm = {
     first_name: "",
@@ -23,6 +23,8 @@ const Visitors = () => {
     const [editingId, setEditingId] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Read the logged-in user from Auth.jsx and localStorage.
     const loggedInUser = getLoggedInUser();
@@ -210,7 +212,7 @@ const Visitors = () => {
     first_name: visitor.first_name || "",
     last_name: visitor.last_name || "",
     unit_number: unitNumber,
-    resident_id: visitor.resident_id?._id || visitor.resident_id || residentId,
+    resident_id: visitor.resident_id?._id || visitor.resident_id || "",
     expected_date: visitor.expected_date
       ? String(visitor.expected_date).split("T")[0]
       : new Date().toISOString().split("T")[0],
@@ -223,18 +225,16 @@ const Visitors = () => {
 };
 
     // Resident/Admin can delete visitors, subject to backend permissions.
-    const handleDelete = async (id) => {
-        if (!canDeleteVisitor) return;
+    const confirmDelete = async () => {
+        if (!deleteTarget || !canDeleteVisitor) return;
 
-        if (!window.confirm("Are you sure you want to delete this visitor?")) {
-            return;
-        }
+        setDeleting(true);
 
         try {
             setError(null);
 
             await axios.delete(
-                `${API_URL}/api/visitors/${id}`,
+                `${API_URL}/api/visitors/${deleteTarget._id || deleteTarget.id}`,
                 { withCredentials: true }
             );
 
@@ -246,6 +246,9 @@ const Visitors = () => {
                 error.response?.data?.message ||
                 "Failed to delete visitor. Please try again."
             );
+        } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
         }
     };
 
@@ -721,9 +724,7 @@ const Visitors = () => {
                                                             type="button"
                                                             className="btn btn-sm text-white px-3"
                                                             style={{ backgroundColor: "#ca5c5c" }}
-                                                            onClick={() =>
-                                                                handleDelete(visitor._id || visitor.id)
-                                                            }
+                                                            onClick={() => setDeleteTarget(visitor)}
                                                         >
                                                             Delete
                                                         </button>
@@ -738,6 +739,24 @@ const Visitors = () => {
                     </table>
                 </div>
             )}
+
+            <ConfirmModal
+                show={!!deleteTarget}
+                title="Delete visitor"
+                message={
+                    <>
+                        Are you sure you want to delete{" "}
+                        <strong>
+                            {deleteTarget?.first_name} {deleteTarget?.last_name}
+                        </strong>
+                        ? This cannot be undone.
+                    </>
+                }
+                confirmText="Delete"
+                loading={deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 };

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { getLoggedInUser } from "../Auth";
+import ConfirmModal from '../componets/ConfirmModel';
+
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -35,6 +37,8 @@ export default function Delivery() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchDeliveries = useCallback(async () => {
     try {
@@ -146,14 +150,12 @@ export default function Delivery() {
     setShowForm(true); // Opens the form pre-filled with data
   };
 
-  const handleDelete = async (id) => {
-    if (!isGuard) return;
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this delivery?"
-    );
-    if (!confirmed) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget || !isGuard) return;
+    const id = deleteTarget._id;
     setError("");
     setSuccess("");
+    setDeleting(true);
     try {
       await axios.delete(
         `${API_URL}/api/deliveries/${id}`,
@@ -170,6 +172,9 @@ export default function Delivery() {
         err.response?.data?.message ||
           "Failed to delete delivery."
       );
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -477,7 +482,7 @@ export default function Delivery() {
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleDelete(delivery._id)}
+                                onClick={() => setDeleteTarget(delivery)}
                               >
                                 Delete
                               </button>
@@ -498,6 +503,23 @@ export default function Delivery() {
           )}
         </div>
       )}
+
+      <ConfirmModal
+        show={!!deleteTarget}
+        title="Delete delivery"
+        message={
+          <>
+            Are you sure you want to delete the{" "}
+            <strong>{deleteTarget?.courier_name}</strong> delivery for unit{" "}
+            <strong>{deleteTarget?.resident_unit}</strong>? This cannot be
+            undone.
+          </>
+        }
+        confirmText="Delete"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

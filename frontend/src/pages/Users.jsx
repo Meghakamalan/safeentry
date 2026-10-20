@@ -1,9 +1,9 @@
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { getUserRole } from "../Auth";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
+import ConfirmModal from '../componets/ConfirmModel';
 
 const initialForm = {
     first_name: "",
@@ -26,6 +26,7 @@ export default function Users() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
@@ -176,12 +177,10 @@ export default function Users() {
     };
 
     // Delete user
-    const handleDelete = async (id) => {
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this user?"
-        );
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
 
-        if (!confirmed) return;
+        const id = deleteTarget._id || deleteTarget.id;
 
         try {
             setDeletingId(id);
@@ -208,6 +207,7 @@ export default function Users() {
             );
         } finally {
             setDeletingId(null);
+            setDeleteTarget(null);
         }
     };
 
@@ -564,9 +564,7 @@ export default function Users() {
                                                         <button
                                                             type="button"
                                                             className="btn btn-sm btn-outline-danger"
-                                                            onClick={() =>
-                                                                handleDelete(id)
-                                                            }
+                                                            onClick={() => setDeleteTarget(user)}
                                                             disabled={
                                                                 deletingId === id
                                                             }
@@ -590,6 +588,24 @@ export default function Users() {
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                show={!!deleteTarget}
+                title="Delete user"
+                message={
+                    <>
+                        Are you sure you want to delete{" "}
+                        <strong>
+                            {deleteTarget?.first_name} {deleteTarget?.last_name}
+                        </strong>
+                        ? This cannot be undone.
+                    </>
+                }
+                confirmText="Delete"
+                loading={deletingId !== null}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 }
