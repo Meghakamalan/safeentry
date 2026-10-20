@@ -30,7 +30,7 @@ console.log("Role:", user?.role);
 
         {/* Protected Dashboard Routes (Wrapped in Layout with Sidebar & Header) */}
         <Route element={<Layout />}>
-          <Route path="/resident" element={<ResidentDashBoard />} />
+          <Route path="/resident" element={<Home />} />
           <Route path="/guard" element={<GuardDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/maintenance" element={<Maintenance />} />

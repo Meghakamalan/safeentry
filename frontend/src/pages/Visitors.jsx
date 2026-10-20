@@ -486,7 +486,7 @@ const Visitors = () => {
                                         placeholder={
                                             isResident
                                                 ? "Your registered unit"
-                                                : "e.g. 1205"
+                                                : "e.g. 120"
                                         }
                                         value={formData.unit_number}
                                         onChange={onChange}

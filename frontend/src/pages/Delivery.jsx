@@ -304,7 +304,7 @@ export default function Delivery() {
                                         id="resident_unit"
                                         name="resident_unit"
                                         className="form-control"
-                                        placeholder="e.g. 1205"
+                                        placeholder="e.g. 120"
                                         value={formData.resident_unit}
                                         onChange={handleChange}
                                         required
@@ -413,10 +413,7 @@ export default function Delivery() {
                                 )}
                             </div>
 
-                            <p className="text-muted small mt-3 mb-0">
-                                Guard name and logged date/time are
-                                recorded automatically by the server.
-                            </p>
+                            
                         </form>
                     </div>
                 </div>

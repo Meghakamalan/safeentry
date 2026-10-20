@@ -47,7 +47,9 @@ const Sidebar = () => {
                     style={{
                         fontFamily: "serif",
                         color: "#1f3a52",
+                        cursor: "pointer",
                     }}
+                    onClick={() => navigate("/home")}
                 >
                     SafeEntry
                 </h2>
@@ -144,6 +146,11 @@ const Sidebar = () => {
                     {/* Admin navigation */}
                     {isAdmin && (
                         <>
+                            <li className="nav-item">
+                                <NavLink to="/home" className={linkClass}>
+                                    Homes
+                                </NavLink>
+                            </li>
                             <li className="nav-item">
                                 <NavLink to="/users" className={linkClass}>
                                     Users

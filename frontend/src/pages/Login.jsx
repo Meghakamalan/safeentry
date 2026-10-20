@@ -46,11 +46,11 @@ const Login = () => {
     const role = response.data.user.role;
     
     if (role === "Resident") {
-      navigate("/resident");
+      navigate("/home");
     } else if (role === "Admin") {
-      navigate("/admin");
+      navigate("/home");
     } else if (role === "Guard") {
-      navigate("/guard");
+      navigate("/home");
     }
     } catch (err) {
       console.error(err);

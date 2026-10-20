@@ -117,14 +117,16 @@ const Profile = () => {
                 </div>
               )}
 
-              <div className="row mb-3">
+            
+
+              {/* <div className="row mb-3">
                 <div className="col-sm-4 text-muted">
                   Account ID
                 </div>
                 <div className="col-sm-8 fw-semibold text-break">
                   {user.id || user._id || "Not available"}
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="card-footer bg-light border-0 p-3">
