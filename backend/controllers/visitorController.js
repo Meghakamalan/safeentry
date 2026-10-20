@@ -217,7 +217,7 @@ export const updateVisitor = async (req, res) => {
       });
     }
 
-    if (!["resident", "admin"].includes(role)) {
+    if (!["resident", "admin", "guard"].includes(role)) {
       return res.status(403).json({
         message: "You do not have permission to update visitors",
       });
@@ -232,7 +232,7 @@ export const updateVisitor = async (req, res) => {
     } = req.body;
 
     const filter =
-      role === "admin"
+      role === "admin" || role === "guard"
         ? { _id: id }
         : { _id: id, resident_id: userId };
 
