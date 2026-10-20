@@ -400,15 +400,16 @@ export const deleteVisitor = async (req, res) => {
       });
     }
 
-    if (!["resident", "admin"].includes(role)) {
+    // Added "guard" to allowed roles for deletion
+    if (!["resident", "guard", "admin"].includes(role)) {
       return res.status(403).json({
-        message:
-          "You do not have permission to delete visitors",
+        message: "You do not have permission to delete visitors",
       });
     }
 
+    // Admins and Guards can delete any visitor record; Residents can only delete their own
     const filter =
-      role === "admin"
+      role === "admin" || role === "guard"
         ? { _id: id }
         : { _id: id, resident_id: userId };
 
@@ -425,13 +426,11 @@ export const deleteVisitor = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete Visitor Error:", error);
-
     if (error.name === "CastError") {
       return res.status(400).json({
         message: "Invalid visitor ID",
       });
     }
-
     return res.status(500).json({
       message: "Error deleting visitor",
     });

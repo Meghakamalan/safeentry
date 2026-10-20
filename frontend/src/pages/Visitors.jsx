@@ -53,8 +53,8 @@ const Visitors = () => {
     const isGuard = userRole === "guard";
 
     const canAddVisitor = isResident || isGuard;
-    const canEditVisitor = isResident;
-    const canDeleteVisitor = isResident || isAdmin;
+    const canEditVisitor = isResident || isGuard;
+    const canDeleteVisitor = isResident || isAdmin || isGuard ;
     const isReadOnly = isAdmin;
 
     // Keep the resident's assigned unit in the form.
@@ -202,32 +202,25 @@ const Visitors = () => {
     };
 
     // Resident can edit their own visitor.
-    const handleEdit = (visitor) => {
-        if (!canEditVisitor) return;
-
-        if (!residentUnitNumber) {
-            setError(
-                "Your account does not have a unit number assigned. Please contact your administrator."
-            );
-            return;
-        }
-
-        setFormData({
-            ...initialForm,
-            first_name: visitor.first_name || "",
-            last_name: visitor.last_name || "",
-            unit_number: residentUnitNumber,
-            expected_date: visitor.expected_date
-                ? String(visitor.expected_date).split("T")[0]
-                : new Date().toISOString().split("T")[0],
-            expected_time: visitor.expected_time || "10:00",
-            vehicle_info: visitor.vehicle_info || "",
-        });
-
-        setEditingId(visitor._id || visitor.id);
-        setError(null);
-        setShowForm(true);
-    };
+   const handleEdit = (visitor) => {
+  if (!canEditVisitor) return;
+  const unitNumber = visitor.unit_number || getResidentUnit();
+  
+  setFormData({
+    first_name: visitor.first_name || "",
+    last_name: visitor.last_name || "",
+    unit_number: unitNumber,
+    resident_id: visitor.resident_id?._id || visitor.resident_id || residentId,
+    expected_date: visitor.expected_date
+      ? String(visitor.expected_date).split("T")[0]
+      : new Date().toISOString().split("T")[0],
+    expected_time: visitor.expected_time || "10:00",
+    vehicle_info: visitor.vehicle_info || "",
+  });
+  setEditingId(visitor._id || visitor.id);
+  setError(null);
+  setShowForm(true);
+};
 
     // Resident/Admin can delete visitors, subject to backend permissions.
     const handleDelete = async (id) => {
