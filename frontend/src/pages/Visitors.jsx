@@ -285,6 +285,23 @@ const Visitors = () => {
         }
     };
 
+    // Helper to get resident unit safely
+    const getResidentUnit = () => {
+        let saved = {};
+        try {
+            saved = JSON.parse(localStorage.getItem("user") || "{}");
+        } catch (error) {
+            console.error("Unable to read saved user:", error);
+        }
+        return String(
+            saved?.unit ??
+            saved?.unit_number ??
+            currentUser?.unit ??
+            currentUser?.unit_number ??
+            ""
+        ).trim();
+    };
+
     // Create or update a visitor.
     const onSubmit = async (e) => {
   e.preventDefault();
@@ -487,11 +504,11 @@ const Visitors = () => {
                                         required
                                     />
 
-                                    {isResident && (
+                                    {/* {isResident && (
                                         <small className="text-muted">
                                             Your registered unit is filled in automatically.
                                         </small>
-                                    )}
+                                    )} */}
                                 </div>
 
                                 {/* {isGuard && (
@@ -523,6 +540,7 @@ const Visitors = () => {
                                         className="form-control"
                                         value={formData.expected_date}
                                         onChange={onChange}
+                                        min={new Date().toISOString().split("T")[0]} // Prevent past dates
                                         readOnly={isReadOnly}
                                         required
                                     />

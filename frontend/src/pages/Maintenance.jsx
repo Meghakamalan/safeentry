@@ -418,6 +418,7 @@ export default function Maintenance() {
                                     className="form-control"
                                     value={formData.request_date}
                                     onChange={handleChange}
+                                    min={new Date().toISOString().split("T")[0]} // Prevent past dates
                                     readOnly={!isResident}
                                     required
                                 />
