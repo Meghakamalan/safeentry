@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { getUserRole } from "../Auth";
+import ConfirmModal from '../componets/ConfirmModel';
 
 const API_URL = import.meta.env.VITE_API_URL || "";
-import ConfirmModal from '../componets/ConfirmModel';
 
 const initialForm = {
     first_name: "",
@@ -29,6 +29,7 @@ export default function Users() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
 
     // Fetch all users
     const fetchUsers = async () => {
@@ -116,7 +117,6 @@ export default function Users() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Save this before resetForm clears editingId
         const wasEditing = Boolean(editingId);
 
         try {
@@ -155,8 +155,6 @@ export default function Users() {
             }
 
             resetForm();
-
-            // Reload the list after a successful operation
             await fetchUsers();
 
             setSuccess(
@@ -211,10 +209,28 @@ export default function Users() {
         }
     };
 
+    // Filter users based on search term
+    const filteredUsers = users.filter((user) => {
+        const term = searchTerm.toLowerCase();
+        const firstName = (user.first_name || "").toLowerCase();
+        const lastName = (user.last_name || "").toLowerCase();
+        const email = (user.email || "").toLowerCase();
+        const unitNumber = (user.unit_number || "").toLowerCase();
+        const role = (user.role || "").toLowerCase();
+
+        return (
+            firstName.includes(term) ||
+            lastName.includes(term) ||
+            email.includes(term) ||
+            unitNumber.includes(term) ||
+            role.includes(term)
+        );
+    });
+
     // Only admins can manage users
     if (!isAdmin) {
         return (
-            <div className="container mt-4">
+            <div className="container-fluid py-2">
                 <div className="alert alert-danger" role="alert">
                     You do not have permission to access this page.
                 </div>
@@ -223,26 +239,28 @@ export default function Users() {
     }
 
     return (
-        <div className="container mt-4 mb-5">
+        <div className="container-fluid py-2">
             {/* Page heading */}
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-                <div>
-                    <h2 className="fw-bold mb-1">
-                        User Management
-                    </h2>
-                    <p className="text-muted mb-0">
-                        Manage SafeEntry residents, guards, and admins.
-                    </p>
-                </div>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h1
+                    className="h3 fw-bold"
+                    style={{ color: "#1f3a52" }}
+                >
+                    {showForm
+                        ? editingId
+                          ? "Edit User"
+                          : "Create User"
+                        : "Users"}
+                </h1>
 
                 {!showForm && (
                     <button
                         type="button"
-                        className="btn btn-primary"
                         onClick={handleAddUser}
+                        className="btn btn-primary text-white px-4 py-2"
+                        // style={{ backgroundColor: "#4155c7", borderRadius: "4px" }}
                     >
-                        <i className="bi bi-person-plus me-2"></i>
-                        Add User
+                        + Add User
                     </button>
                 )}
             </div>
@@ -263,21 +281,15 @@ export default function Users() {
 
             {/* Create / Edit form */}
             {showForm ? (
-                <div className="card shadow-sm border-0">
-                    <div className="card-header bg-white py-3">
-                        <h5 className="mb-0 fw-bold">
-                            {editingId ? "Edit User" : "Create User"}
-                        </h5>
-                    </div>
-
-                    <div className="card-body">
+                <div className="d-flex justify-content-center mt-3">
+                    <div className="w-100" style={{ maxWidth: "600px" }}>
                         <form onSubmit={handleSubmit}>
-                            <div className="row">
+                            <div className="row g-3">
                                 {/* First name */}
-                                <div className="col-md-6 mb-3">
+                                <div className="col-6">
                                     <label
                                         htmlFor="first_name"
-                                        className="form-label"
+                                        className="form-label fw-semibold"
                                     >
                                         First Name
                                     </label>
@@ -294,10 +306,10 @@ export default function Users() {
                                 </div>
 
                                 {/* Last name */}
-                                <div className="col-md-6 mb-3">
+                                <div className="col-6">
                                     <label
                                         htmlFor="last_name"
-                                        className="form-label"
+                                        className="form-label fw-semibold"
                                     >
                                         Last Name
                                     </label>
@@ -314,10 +326,10 @@ export default function Users() {
                                 </div>
 
                                 {/* Email */}
-                                <div className="col-md-6 mb-3">
+                                <div className="col-12">
                                     <label
                                         htmlFor="email"
-                                        className="form-label"
+                                        className="form-label fw-semibold"
                                     >
                                         Email Address
                                     </label>
@@ -334,10 +346,10 @@ export default function Users() {
                                 </div>
 
                                 {/* Phone */}
-                                <div className="col-md-6 mb-3">
+                                <div className="col-12">
                                     <label
                                         htmlFor="phone"
-                                        className="form-label"
+                                        className="form-label fw-semibold"
                                     >
                                         Phone Number
                                     </label>
@@ -354,10 +366,10 @@ export default function Users() {
                                 </div>
 
                                 {/* Unit number */}
-                                <div className="col-md-6 mb-3">
+                                <div className="col-12">
                                     <label
                                         htmlFor="unit_number"
-                                        className="form-label"
+                                        className="form-label fw-semibold"
                                     >
                                         Unit Number
                                     </label>
@@ -368,16 +380,15 @@ export default function Users() {
                                         name="unit_number"
                                         value={formData.unit_number}
                                         onChange={handleChange}
-                            
                                     />
                                 </div>
 
                                 {/* Password: only when creating */}
                                 {!editingId && (
-                                    <div className="col-md-6 mb-3">
+                                    <div className="col-12">
                                         <label
                                             htmlFor="password"
-                                            className="form-label"
+                                            className="form-label fw-semibold"
                                         >
                                             Password
                                         </label>
@@ -392,17 +403,17 @@ export default function Users() {
                                             minLength={8}
                                             required
                                         />
-                                        <div className="form-text">
+                                        <div className="form-text text-muted">
                                             Password must be at least 8 characters.
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Role */}
-                                <div className="col-md-6 mb-4">
+                                <div className="col-12">
                                     <label
                                         htmlFor="role"
-                                        className="form-label"
+                                        className="form-label fw-semibold"
                                     >
                                         User Role
                                     </label>
@@ -414,36 +425,31 @@ export default function Users() {
                                         onChange={handleChange}
                                         required
                                     >
-                                        <option value="Resident">
-                                            Resident
-                                        </option>
-                                        <option value="Guard">
-                                            Guard
-                                        </option>
-                                        <option value="Admin">
-                                            Admin
-                                        </option>
+                                        <option value="Resident">Resident</option>
+                                        <option value="Guard">Guard</option>
+                                        <option value="Admin">Admin</option>
                                     </select>
                                 </div>
                             </div>
 
                             {/* Form actions */}
-                            <div className="d-flex gap-2">
+                            <div className="d-flex gap-3 mt-4">
                                 <button
                                     type="submit"
-                                    className="btn btn-primary"
+                                    className="btn btn-primary text-white flex-grow-1"
                                     disabled={saving}
                                 >
                                     {saving
                                         ? "Saving..."
                                         : editingId
-                                          ? "Update User"
-                                          : "Create User"}
+                                          ? "Save Changes"
+                                          : "Submit"}
                                 </button>
 
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="btn btn-secondary text-white flex-grow-1"
+                                    // style={{ backgroundColor: "#ca5c5c" }}
                                     onClick={resetForm}
                                     disabled={saving}
                                 >
@@ -454,139 +460,120 @@ export default function Users() {
                     </div>
                 </div>
             ) : (
-                /* Users list */
-                <div className="card shadow-sm border-0">
-                    <div className="card-header bg-white py-3">
-                        <h5 className="mb-0 fw-bold">
-                            All Users ({users.length})
-                        </h5>
+                /* Users list view */
+                <>
+                    {/* Search Bar Input */}
+                    <div className="row mb-3">
+                        <div className="col-md-4 col-sm-6">
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search by name, email, unit, or role..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
                     </div>
 
-                    <div className="card-body p-0">
-                        {loading ? (
-                            <div className="text-center py-5">
-                                <div
-                                    className="spinner-border text-primary"
-                                    role="status"
-                                >
-                                    <span className="visually-hidden">
-                                        Loading...
-                                    </span>
-                                </div>
-                                <p className="text-muted mt-2 mb-0">
-                                    Loading users...
-                                </p>
-                            </div>
-                        ) : users.length === 0 ? (
-                            <div className="text-center py-5">
-                                <i className="bi bi-people display-4 text-muted"></i>
-                                <p className="text-muted mt-3 mb-0">
-                                    No users found.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="table-responsive">
-                                <table className="table table-hover align-middle mb-0">
-                                    <thead className="table-light">
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Phone</th>
-                                            <th>Unit</th>
-                                            <th>Role</th>
-                                            <th>Created</th>
-                                            <th className="text-end">
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
+                    <div className="table-responsive">
+                        <table className="table align-middle text-center">
+                            <thead style={{ backgroundColor: "#ede6e2" }}>
+                                <tr>
+                                    <th className="py-3">Name</th>
+                                    <th className="py-3">Email</th>
+                                    <th className="py-3">Phone</th>
+                                    <th className="py-3">Unit</th>
+                                    <th className="py-3">Role</th>
+                                    <th className="py-3">Created</th>
+                                    <th className="py-3">Action</th>
+                                </tr>
+                            </thead>
 
-                                    <tbody>
-                                        {users.map((user) => {
-                                            const id = user._id || user.id;
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-4 text-muted">
+                                            Loading users...
+                                        </td>
+                                    </tr>
+                                ) : filteredUsers.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-4 text-muted">
+                                            {users.length === 0
+                                                ? "No users found."
+                                                : "No matching users found."}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredUsers.map((user) => {
+                                        const id = user._id || user.id;
 
-                                            return (
-                                                <tr key={id}>
-                                                    <td className="fw-semibold">
-                                                        {user.first_name}{" "}
-                                                        {user.last_name}
-                                                    </td>
+                                        return (
+                                            <tr key={id}>
+                                                <td className="fw-semibold">
+                                                    {user.first_name} {user.last_name}
+                                                </td>
 
-                                                    <td>{user.email}</td>
+                                                <td>{user.email}</td>
 
-                                                    <td>
-                                                        {user.phone || "—"}
-                                                    </td>
+                                                <td>{user.phone || "—"}</td>
 
-                                                    <td>
-                                                        {user.unit_number || "—"}
-                                                    </td>
+                                                <td>{user.unit_number || "—"}</td>
 
-                                                    <td>
-                                                        <span
-                                                            className={`badge ${
-                                                                String(user.role).toLowerCase() ===
-                                                                "admin"
-                                                                    ? "text-bg-danger"
-                                                                    : String(user.role).toLowerCase() ===
-                                                                        "guard"
-                                                                      ? "text-bg-warning"
-                                                                      : "text-bg-primary"
-                                                            }`}
-                                                        >
-                                                            {user.role}
-                                                        </span>
-                                                    </td>
+                                                <td>
+                                                    <span
+                                                        className={`badge px-3 py-2 rounded-pill ${
+                                                            String(user.role).toLowerCase() === "admin"
+                                                                ? "bg-danger text-white"
+                                                                : String(user.role).toLowerCase() === "guard"
+                                                                  ? "bg-warning text-dark"
+                                                                  : "bg-primary text-white"
+                                                        }`}
+                                                    >
+                                                        {user.role}
+                                                    </span>
+                                                </td>
 
-                                                    <td>
-                                                        {user.createdAt
-                                                            ? new Date(
-                                                                  user.createdAt
-                                                              ).toLocaleDateString()
-                                                            : "—"}
-                                                    </td>
+                                                <td>
+                                                    {user.createdAt
+                                                        ? new Date(user.createdAt).toLocaleDateString("en-GB", {
+                                                              day: "2-digit",
+                                                              month: "short",
+                                                              year: "numeric",
+                                                          })
+                                                        : "—"}
+                                                </td>
 
-                                                    <td className="text-end text-nowrap">
+                                                <td>
+                                                    <div className="d-flex justify-content-center gap-2">
                                                         <button
                                                             type="button"
-                                                            className="btn btn-sm btn-outline-primary me-2"
-                                                            onClick={() =>
-                                                                handleEdit(user)
-                                                            }
-                                                            title="Edit user"
+                                                            className="btn btn-sm text-white px-3"
+                                                            style={{ backgroundColor: "#5f6368" }}
+                                                            onClick={() => handleEdit(user)}
                                                         >
-                                                            <i className="bi bi-pencil"></i>
-                                                            <span className="ms-1">
-                                                                Edit
-                                                            </span>
+                                                            Edit
                                                         </button>
 
                                                         <button
                                                             type="button"
-                                                            className="btn btn-sm btn-outline-danger"
+                                                            className="btn btn-sm text-white px-3"
+                                                            style={{ backgroundColor: "#ca5c5c" }}
                                                             onClick={() => setDeleteTarget(user)}
-                                                            disabled={
-                                                                deletingId === id
-                                                            }
-                                                            title="Delete user"
+                                                            disabled={deletingId === id}
                                                         >
-                                                            <i className="bi bi-trash"></i>
-                                                            <span className="ms-1">
-                                                                {deletingId === id
-                                                                    ? "Deleting..."
-                                                                    : "Delete"}
-                                                            </span>
+                                                            {deletingId === id ? "Deleting..." : "Delete"}
                                                         </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
+                </>
             )}
 
             <ConfirmModal

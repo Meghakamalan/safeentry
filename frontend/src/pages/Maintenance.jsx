@@ -21,6 +21,7 @@ export default function Maintenance() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -253,7 +254,6 @@ export default function Maintenance() {
             return "bg-warning text-dark";
         }
 
-        // "Submitted" (the default for new requests)
         return "bg-info text-dark";
     };
 
@@ -295,50 +295,49 @@ export default function Maintenance() {
             return String(date);
         }
 
-        return parsedDate.toLocaleDateString();
+        return parsedDate.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
     };
+
+    // Filter requests based on search term
+    const filteredRequests = requests.filter((ticket) => {
+        const term = searchTerm.toLowerCase();
+        const issueType = (ticket.issue_type || "").toLowerCase();
+        const description = (ticket.description || "").toLowerCase();
+        const status = (ticket.status || "").toLowerCase();
+
+        return (
+            issueType.includes(term) ||
+            description.includes(term) ||
+            status.includes(term)
+        );
+    });
 
     return (
         <div className="container-fluid py-2">
             {/* Page heading */}
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                <div>
-                    <h2 className="mb-1">
-                        {showForm
-                            ? isAdmin
-                                ? "Maintenance Request Details"
-                                : editingId
-                                  ? "Edit Maintenance Request"
-                                  : "Create Maintenance Request"
-                            : "Maintenance"}
-                    </h2>
-
-                    <p className="text-muted mb-0">
-                        {showForm && isAdmin &&
-                            "View the details of this maintenance request."}
-
-                        {showForm && isResident && editingId &&
-                            "Update your maintenance request."}
-
-                        {showForm && isResident && !editingId &&
-                            "Submit a new maintenance request."}
-
-                        {!showForm && isResident &&
-                            "Submit and manage your maintenance requests."}
-
-                        {!showForm && isAdmin &&
-                            "View requests, update statuses, and manage maintenance records."}
-
-                        {!showForm && isGuard &&
-                            "View maintenance requests and their current status."}
-                    </p>
-                </div>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h1
+                    className="h3 fw-bold"
+                    style={{ color: "#1f3a52" }}
+                >
+                    {showForm
+                        ? isAdmin
+                            ? "Maintenance Request Details"
+                            : editingId
+                              ? "Edit Maintenance Request"
+                              : "Create Maintenance Request"
+                        : "Maintenance"}
+                </h1>
 
                 {!showForm && isResident && (
                     <button
                         type="button"
-                        className="btn text-white"
-                        style={{ backgroundColor: "#4155c7" }}
+                        className="btn btn-primary text-white px-4 py-2"
+
                         onClick={handleAddNew}
                     >
                         + New Request
@@ -350,398 +349,307 @@ export default function Maintenance() {
             {error && (
                 <div className="alert alert-danger" role="alert">
                     {error}
-
-                    <button
-                        type="button"
-                        className="btn-close float-end"
-                        aria-label="Close error message"
-                        onClick={() => setError("")}
-                    />
                 </div>
             )}
 
             {/* Form or details view */}
-            {showForm && (
-                <div
-                    className="card shadow-sm mx-auto mb-4"
-                    style={{ maxWidth: "600px" }}
-                >
-                    <div
-                        className="card-header text-white"
-                        style={{ backgroundColor: "#4155c7" }}
-                    >
-                        <h5 className="mb-0">
-                            {isAdmin
-                                ? "Request Details"
-                                : editingId
-                                  ? "Edit Request"
-                                  : "New Request"}
-                        </h5>
-                    </div>
-
-                    <div className="card-body p-4">
+            {showForm ? (
+                <div className="d-flex justify-content-center mt-3">
+                    <div className="w-100" style={{ maxWidth: "600px" }}>
                         <form onSubmit={onSubmit}>
-                            {/* Issue type */}
-                            <div className="mb-3">
-                                <label
-                                    htmlFor="issue_type"
-                                    className="form-label fw-semibold"
-                                >
-                                    Issue Type
-                                </label>
+                            <div className="row g-3">
+                                {/* Issue type */}
+                                <div className="col-12">
+                                    <label
+                                        htmlFor="issue_type"
+                                        className="form-label fw-semibold"
+                                    >
+                                        Issue Type
+                                    </label>
 
-                                <select
-                                    id="issue_type"
-                                    name="issue_type"
-                                    className="form-select"
-                                    value={formData.issue_type}
-                                    onChange={handleChange}
-                                    disabled={!isResident}
-                                    required
-                                >
-                                    <option value="Door Latch Problem">
-                                        Door Latch Problem
-                                    </option>
-                                    <option value="Plumbing">Plumbing</option>
-                                    <option value="Electrical">Electrical</option>
-                                    <option value="Heating or Cooling">
-                                        Heating or Cooling
-                                    </option>
-                                    <option value="Appliance">Appliance</option>
-                                    <option value="Cleaning">Cleaning</option>
-                                    <option value="Other">Other</option>
-                                </select>
+                                    <select
+                                        id="issue_type"
+                                        name="issue_type"
+                                        className="form-select"
+                                        value={formData.issue_type}
+                                        onChange={handleChange}
+                                        disabled={!isResident}
+                                        required
+                                    >
+                                        <option value="Door Latch Problem">
+                                            Door Latch Problem
+                                        </option>
+                                        <option value="Plumbing">Plumbing</option>
+                                        <option value="Electrical">Electrical</option>
+                                        <option value="Heating or Cooling">
+                                            Heating or Cooling
+                                        </option>
+                                        <option value="Appliance">Appliance</option>
+                                        <option value="Cleaning">Cleaning</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+
+                                {/* Request date */}
+                                <div className="col-12">
+                                    <label
+                                        htmlFor="request_date"
+                                        className="form-label fw-semibold"
+                                    >
+                                        Request Date
+                                    </label>
+
+                                    <input
+                                        type="date"
+                                        id="request_date"
+                                        name="request_date"
+                                        className="form-control"
+                                        value={formData.request_date}
+                                        onChange={handleChange}
+                                        min={new Date().toISOString().split("T")[0]}
+                                        readOnly={!isResident}
+                                        required
+                                    />
+                                </div>
+
+                                {/* Description */}
+                                <div className="col-12">
+                                    <label
+                                        htmlFor="description"
+                                        className="form-label fw-semibold"
+                                    >
+                                        Description
+                                    </label>
+
+                                    <textarea
+                                        id="description"
+                                        name="description"
+                                        className="form-control"
+                                        rows="4"
+                                        placeholder="Describe the maintenance issue..."
+                                        value={formData.description}
+                                        onChange={handleChange}
+                                        readOnly={!isResident}
+                                        required
+                                    />
+                                </div>
                             </div>
 
-                            {/* Request date */}
-                            <div className="mb-3">
-                                <label
-                                    htmlFor="request_date"
-                                    className="form-label fw-semibold"
-                                >
-                                    Request Date
-                                </label>
-
-                                <input
-                                    type="date"
-                                    id="request_date"
-                                    name="request_date"
-                                    className="form-control"
-                                    value={formData.request_date}
-                                    onChange={handleChange}
-                                    min={new Date().toISOString().split("T")[0]} // Prevent past dates
-                                    readOnly={!isResident}
-                                    required
-                                />
-                            </div>
-
-                            {/* Description */}
-                            <div className="mb-4">
-                                <label
-                                    htmlFor="description"
-                                    className="form-label fw-semibold"
-                                >
-                                    Description
-                                </label>
-
-                                <textarea
-                                    id="description"
-                                    name="description"
-                                    className="form-control"
-                                    rows="4"
-                                    placeholder="Describe the maintenance issue..."
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    readOnly={!isResident}
-                                    required
-                                />
-                            </div>
-
-                            {/* Resident form buttons */}
-                            {isResident && (
-                                <div className="d-flex flex-wrap gap-2">
+                            {/* Form buttons */}
+                            <div className="d-flex gap-3 mt-4">
+                                {isResident && (
                                     <button
                                         type="submit"
-                                        className="btn text-white"
-                                        style={{
-                                            backgroundColor: "#4155c7",
-                                        }}
+                                        className="btn btn-primary text-white flex-grow-1"
                                         disabled={saving}
                                     >
                                         {saving
                                             ? "Saving..."
                                             : editingId
-                                              ? "Save Changes"
-                                              : "Submit Request"}
+                                                ? "Save Changes"
+                                                : "Submit"}
                                     </button>
+                                )}
 
-                                    <button
-                                        type="button"
-                                        className="btn text-white"
-                                        style={{
-                                            backgroundColor: "#5f6368",
-                                        }}
-                                        disabled={saving}
-                                        onClick={handleCloseForm}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Admin details close button */}
-                            {!isResident && (
                                 <button
                                     type="button"
-                                    className="btn text-white"
-                                    style={{
-                                        backgroundColor: "#5f6368",
-                                    }}
+                                    className="btn btn-secondary text-white flex-grow-1"
                                     onClick={handleCloseForm}
+                                    disabled={saving}
                                 >
-                                    Close
+                                    {isResident ? "Cancel" : "Close"}
                                 </button>
-                            )}
+                            </div>
                         </form>
                     </div>
                 </div>
-            )}
+            ) : (
+                <>
+                    {/* Search Bar Input */}
+                    <div className="row mb-3">
+                        <div className="col-md-4 col-sm-6">
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search by issue, status, or description..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
 
-            {/* IMPORTANT: Hide the entire list while the form/details are open */}
-            {!showForm && (
-                <div className="card shadow-sm border-0">
-                    <div className="card-body p-0">
-                        {loading ? (
-                            <div
-                                className="text-center py-5"
-                                role="status"
-                            >
-                                <div
-                                    className="spinner-border"
-                                    style={{ color: "#4155c7" }}
-                                    aria-hidden="true"
-                                />
+                    <div className="table-responsive">
+                        <table className="table align-middle text-center">
+                            <thead style={{ backgroundColor: "#ede6e2" }}>
+                                <tr>
+                                    <th className="py-3">Issue</th>
+                                    <th className="py-3">Date</th>
+                                    <th className="py-3">Status</th>
 
-                                <p className="mt-2 mb-0">
-                                    Loading maintenance requests...
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="table-responsive">
-                                <table className="table table-hover align-middle mb-0">
-                                    <thead>
-                                        <tr
-                                            style={{
-                                                backgroundColor: "#ede6e2",
-                                            }}
+                                    {isAdmin && (
+                                        <th className="py-3">Update Status</th>
+                                    )}
+
+                                    {(isResident || isAdmin) && (
+                                        <th className="py-3">Action</th>
+                                    )}
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td
+                                            colSpan={
+                                                3 +
+                                                (isAdmin ? 2 : 0) +
+                                                (isResident ? 1 : 0)
+                                            }
+                                            className="py-4 text-muted"
                                         >
-                                            <th
-                                                scope="col"
-                                                className="text-center py-3"
-                                            >
-                                                Issue
-                                            </th>
+                                            Loading maintenance requests...
+                                        </td>
+                                    </tr>
+                                ) : filteredRequests.length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan={
+                                                3 +
+                                                (isAdmin ? 2 : 0) +
+                                                (isResident ? 1 : 0)
+                                            }
+                                            className="py-4 text-muted"
+                                        >
+                                            {requests.length === 0
+                                                ? "No maintenance requests found."
+                                                : "No matching maintenance requests found."}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredRequests.map((ticket) => (
+                                        <tr key={ticket._id}>
+                                            <td className="fw-semibold">
+                                                {ticket.issue_type || "Maintenance Issue"}
+                                            </td>
 
-                                            <th
-                                                scope="col"
-                                                className="text-center py-3"
-                                            >
-                                                Date
-                                            </th>
+                                            <td>
+                                                {formatDate(ticket.request_date)}
+                                            </td>
 
-                                            <th
-                                                scope="col"
-                                                className="text-center py-3"
-                                            >
-                                                Status
-                                            </th>
-
-                                            {isAdmin && (
-                                                <th
-                                                    scope="col"
-                                                    className="text-center py-3"
+                                            <td>
+                                                <span
+                                                    className={`badge px-3 py-2 rounded-pill ${getStatusBadge(
+                                                        ticket.status
+                                                    )}`}
                                                 >
-                                                    Update Status
-                                                </th>
+                                                    {ticket.status || "Submitted"}
+                                                </span>
+                                            </td>
+
+                                            {/* Admin status dropdown */}
+                                            {isAdmin && (
+                                                <td>
+                                                    <select
+                                                        className="form-select form-select-sm mx-auto"
+                                                        style={{
+                                                            minWidth: "140px",
+                                                            maxWidth: "160px",
+                                                        }}
+                                                        aria-label={`Update status for ${
+                                                            ticket.issue_type ||
+                                                            "maintenance request"
+                                                        }`}
+                                                        value={getDropdownStatus(
+                                                            ticket.status
+                                                        )}
+                                                        onChange={(event) =>
+                                                            handleStatusChange(
+                                                                ticket._id,
+                                                                event.target.value
+                                                            )
+                                                        }
+                                                    >
+                                                        {statusOptions.map((status) => (
+                                                            <option
+                                                                key={status}
+                                                                value={status}
+                                                            >
+                                                                {status}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </td>
                                             )}
 
+                                            {/* Action buttons */}
                                             {(isResident || isAdmin) && (
-                                                <th
-                                                    scope="col"
-                                                    className="text-center py-3"
-                                                >
-                                                    Action
-                                                </th>
+                                                <td>
+                                                    <div className="d-flex justify-content-center gap-2">
+                                                        {isAdmin ? (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-primary btn-sm text-white px-3"
+
+                                                                    onClick={() =>
+                                                                        handleView(ticket)
+                                                                    }
+                                                                >
+                                                                    View
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm text-white px-3"
+                                                                    style={{
+                                                                        backgroundColor: "#ca5c5c",
+                                                                    }}
+                                                                    onClick={() =>
+                                                                        setDeleteTarget(ticket)
+                                                                    }
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm text-white px-3"
+                                                                    style={{
+                                                                        backgroundColor: "#5f6368",
+                                                                    }}
+                                                                    onClick={() =>
+                                                                        handleEdit(ticket)
+                                                                    }
+                                                                >
+                                                                    Edit
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm text-white px-3"
+                                                                    style={{
+                                                                        backgroundColor: "#ca5c5c",
+                                                                    }}
+                                                                    onClick={() =>
+                                                                        setDeleteTarget(ticket)
+                                                                    }
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
                                             )}
                                         </tr>
-                                    </thead>
-
-                                    <tbody>
-                                        {requests.length === 0 ? (
-                                            <tr>
-                                                <td
-                                                    colSpan={
-                                                        3 +
-                                                        (isAdmin ? 2 : 0) +
-                                                        (isResident ? 1 : 0)
-                                                    }
-                                                    className="text-center py-5 text-muted"
-                                                >
-                                                    No maintenance requests found.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            requests.map((ticket) => (
-                                                <tr key={ticket._id}>
-                                                    <td className="text-center">
-                                                        <span className="fw-semibold">
-                                                            {ticket.issue_type ||
-                                                                "Maintenance Issue"}
-                                                        </span>
-                                                    </td>
-
-                                                    <td className="text-center">
-                                                        {formatDate(
-                                                            ticket.request_date
-                                                        )}
-                                                    </td>
-
-                                                    <td className="text-center">
-                                                        <span
-                                                            className={`badge ${getStatusBadge(
-                                                                ticket.status
-                                                            )}`}
-                                                        >
-                                                            {ticket.status || "Submitted"}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* Admin status dropdown */}
-                                                    {isAdmin && (
-                                                        <td className="text-center">
-                                                            <select
-                                                                className="form-select form-select-sm mx-auto"
-                                                                style={{
-                                                                    minWidth:
-                                                                        "140px",
-                                                                    maxWidth:
-                                                                        "160px",
-                                                                }}
-                                                                aria-label={`Update status for ${
-                                                                    ticket.issue_type ||
-                                                                    "maintenance request"
-                                                                }`}
-                                                                value={getDropdownStatus(
-                                                                    ticket.status
-                                                                )}
-                                                                onChange={(
-                                                                    event
-                                                                ) =>
-                                                                    handleStatusChange(
-                                                                        ticket._id,
-                                                                        event
-                                                                            .target
-                                                                            .value
-                                                                    )
-                                                                }
-                                                            >
-                                                                {statusOptions.map(
-                                                                    (status) => (
-                                                                        <option
-                                                                            key={
-                                                                                status
-                                                                            }
-                                                                            value={
-                                                                                status
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                status
-                                                                            }
-                                                                        </option>
-                                                                    )
-                                                                )}
-                                                            </select>
-                                                        </td>
-                                                    )}
-
-                                                    {/* Action buttons */}
-                                                    {(isResident || isAdmin) && (
-                                                        <td className="text-center">
-                                                            <div className="d-flex justify-content-center flex-wrap gap-2">
-                                                                {isAdmin ? (
-                                                                    <>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="btn btn-sm text-white"
-                                                                            style={{
-                                                                                backgroundColor:
-                                                                                    "#4155c7",
-                                                                            }}
-                                                                            onClick={() =>
-                                                                                handleView(
-                                                                                    ticket
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            View
-                                                                        </button>
-
-                                                                        <button
-                                                                            type="button"
-                                                                            className="btn btn-sm text-white"
-                                                                            style={{
-                                                                                backgroundColor:
-                                                                                    "#ca5c5c",
-                                                                            }}
-                                                                            onClick={() => setDeleteTarget(ticket)}
-                                                                        >
-                                                                            Delete
-                                                                        </button>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="btn btn-sm text-white"
-                                                                            style={{
-                                                                                backgroundColor:
-                                                                                    "#5f6368",
-                                                                            }}
-                                                                            onClick={() =>
-                                                                                handleEdit(
-                                                                                    ticket
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            Edit
-                                                                        </button>
-
-                                                                        <button
-                                                                            type="button"
-                                                                            className="btn btn-sm text-white"
-                                                                            style={{
-                                                                                backgroundColor:
-                                                                                    "#ca5c5c",
-                                                                            }}
-                                                                            onClick={() => setDeleteTarget(ticket)}
-                                                                        >
-                                                                            Delete
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
+                </>
             )}
 
             <ConfirmModal
@@ -749,11 +657,8 @@ export default function Maintenance() {
                 title="Delete maintenance request"
                 message={
                     <>
-                        Are you sure you want to delete this{" "}
-                        <strong>
-                            {deleteTarget?.issue_type || "maintenance"}
-                        </strong>{" "}
-                        request? This cannot be undone.
+                        Are you sure you want to delete the maintenance request for{" "}
+                        <strong>{deleteTarget?.issue_type}</strong>? This cannot be undone.
                     </>
                 }
                 confirmText="Delete"

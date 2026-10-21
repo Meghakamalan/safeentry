@@ -1,28 +1,34 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { getUserRole } from "../Auth";
 import ConfirmModal from '../componets/ConfirmModel';
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
+const initialForm = {
+    title: "",
+    content: "",
+};
+
 export default function Announcements() {
     const userRole = String(getUserRole() || "").toLowerCase();
     const isAdmin = userRole === "admin";
 
     const [announcements, setAnnouncements] = useState([]);
-    const [title, setTitle] = useState("");
-    const [content, setContent] = useState("");
+    const [formData, setFormData] = useState(initialForm);
     const [editingId, setEditingId] = useState(null);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
     // Fetch announcements from the backend.
-    const fetchAnnouncements = async () => {
+    const fetchAnnouncements = useCallback(async () => {
         try {
             setLoading(true);
             setError("");
@@ -47,16 +53,15 @@ export default function Announcements() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchAnnouncements();
-    }, []);
+    }, [fetchAnnouncements]);
 
     // Clear the form and close it.
     const resetForm = () => {
-        setTitle("");
-        setContent("");
+        setFormData(initialForm);
         setEditingId(null);
         setShowForm(false);
         setError("");
@@ -64,27 +69,39 @@ export default function Announcements() {
 
     // Open the form to create an announcement.
     const handleCreate = () => {
-        setTitle("");
-        setContent("");
+        setFormData(initialForm);
         setEditingId(null);
         setError("");
+        setSuccess("");
         setShowForm(true);
     };
 
     // Open the form to edit an announcement.
     const handleEdit = (announcement) => {
-        setTitle(announcement.title);
-        setContent(announcement.content);
+        setFormData({
+            title: announcement.title || "",
+            content: announcement.content || "",
+        });
         setEditingId(announcement._id);
         setError("");
+        setSuccess("");
         setShowForm(true);
+    };
+
+    // Update form fields.
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+        setFormData((previous) => ({
+            ...previous,
+            [name]: value,
+        }));
     };
 
     // Create or update an announcement.
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        if (!title.trim() || !content.trim()) {
+        if (!formData.title.trim() || !formData.content.trim()) {
             setError("Please enter both a title and content.");
             return;
         }
@@ -92,29 +109,29 @@ export default function Announcements() {
         try {
             setSaving(true);
             setError("");
+            setSuccess("");
 
             const announcementData = {
-                title: title.trim(),
-                content: content.trim(),
+                title: formData.title.trim(),
+                content: formData.content.trim(),
             };
 
             if (editingId) {
-                // Update an existing announcement.
                 await axios.put(
                     `${API_URL}/api/announcements/${editingId}`,
                     announcementData,
                     { withCredentials: true }
                 );
+                setSuccess("Announcement updated successfully.");
             } else {
-                // Create a new announcement.
                 await axios.post(
                     `${API_URL}/api/announcements`,
                     announcementData,
                     { withCredentials: true }
                 );
+                setSuccess("Announcement published successfully.");
             }
 
-            // Close the form and refresh the list.
             resetForm();
             await fetchAnnouncements();
         } catch (err) {
@@ -139,6 +156,7 @@ export default function Announcements() {
 
         try {
             setError("");
+            setSuccess("");
 
             await axios.delete(
                 `${API_URL}/api/announcements/${id}`,
@@ -148,6 +166,7 @@ export default function Announcements() {
             setAnnouncements((previous) =>
                 previous.filter((item) => item._id !== id)
             );
+            setSuccess("Announcement deleted successfully.");
         } catch (err) {
             console.error("Error deleting announcement:", err);
 
@@ -171,36 +190,43 @@ export default function Announcements() {
             return "—";
         }
 
-        return parsedDate.toLocaleString("en-CA", {
-            year: "numeric",
+        return parsedDate.toLocaleDateString("en-GB", {
+            day: "2-digit",
             month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
+            year: "numeric",
         });
     };
 
+    // Filter announcements based on search term.
+    const filteredAnnouncements = announcements.filter((item) => {
+        const term = searchTerm.toLowerCase();
+        const titleText = (item.title || "").toLowerCase();
+        const contentText = (item.content || "").toLowerCase();
+
+        return titleText.includes(term) || contentText.includes(term);
+    });
+
     return (
-        <div className="container py-4">
+        <div className="container-fluid py-2">
             {/* Page heading */}
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                <div>
-                    <h2 className="fw-bold mb-1">
-                        Announcements
-                    </h2>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h1
+                    className="h3 fw-bold "
+                    style={{ color: "#1f3a52" }}
+                >
+                    {showForm
+                        ? editingId
+                            ? "Edit Announcement"
+                            : "Create Announcement"
+                        : "Announcements"}
+                </h1>
 
-                    <p className="text-muted mb-0">
-                        Stay updated with the latest community news.
-                    </p>
-                </div>
-
-                {/* Show Create button only to Admins when form is closed */}
                 {isAdmin && !showForm && (
                     <button
                         type="button"
-                        className="btn text-white"
-                        style={{ backgroundColor: "#4155c7" }}
                         onClick={handleCreate}
+                        className="btn btn-primary text-white px-4 py-2"
+                        // style={{ backgroundColor: "#4155c7", borderRadius: "4px" }}
                     >
                         + Create Announcement
                     </button>
@@ -209,90 +235,81 @@ export default function Announcements() {
 
             {/* Error message */}
             {error && (
-                <div
-                    className="alert alert-danger"
-                    role="alert"
-                >
+                <div className="alert alert-danger" role="alert">
                     {error}
                 </div>
             )}
 
+            {/* Success message */}
+            {success && (
+                <div className="alert alert-success" role="alert">
+                    {success}
+                </div>
+            )}
+
             {/* Create / Edit form */}
-            {isAdmin && showForm && (
-                <div className="card border-0 shadow-sm mb-4">
-                    <div className="card-body p-4">
-                        <h5 className="fw-bold mb-4">
-                            {editingId
-                                ? "Edit Announcement"
-                                : "Create Announcement"}
-                        </h5>
-
+            {isAdmin && showForm ? (
+                <div className="d-flex justify-content-center mt-3">
+                    <div className="w-100" style={{ maxWidth: "600px" }}>
                         <form onSubmit={handleSubmit}>
-                            {/* Title */}
-                            <div className="mb-3">
-                                <label
-                                    htmlFor="announcementTitle"
-                                    className="form-label fw-semibold"
-                                >
-                                    Title
-                                </label>
+                            <div className="row g-3">
+                                <div className="col-12">
+                                    <label
+                                        htmlFor="title"
+                                        className="form-label fw-semibold"
+                                    >
+                                        Title
+                                    </label>
+                                    <input
+                                        id="title"
+                                        type="text"
+                                        name="title"
+                                        className="form-control"
+                                        placeholder="Enter announcement title"
+                                        value={formData.title}
+                                        onChange={handleChange}
+                                        maxLength={150}
+                                        required
+                                    />
+                                </div>
 
-                                <input
-                                    id="announcementTitle"
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="Enter announcement title"
-                                    value={title}
-                                    onChange={(event) =>
-                                        setTitle(event.target.value)
-                                    }
-                                    maxLength={150}
-                                    required
-                                />
+                                <div className="col-12">
+                                    <label
+                                        htmlFor="content"
+                                        className="form-label fw-semibold"
+                                    >
+                                        Content
+                                    </label>
+                                    <textarea
+                                        id="content"
+                                        name="content"
+                                        className="form-control"
+                                        rows="5"
+                                        placeholder="Write your announcement..."
+                                        value={formData.content}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
                             </div>
 
-                            {/* Content */}
-                            <div className="mb-4">
-                                <label
-                                    htmlFor="announcementContent"
-                                    className="form-label fw-semibold"
-                                >
-                                    Content
-                                </label>
-
-                                <textarea
-                                    id="announcementContent"
-                                    className="form-control"
-                                    rows="5"
-                                    placeholder="Write your announcement..."
-                                    value={content}
-                                    onChange={(event) =>
-                                        setContent(event.target.value)
-                                    }
-                                    required
-                                />
-                            </div>
-
-                            {/* Form buttons */}
-                            <div className="d-flex flex-wrap gap-2">
+                            <div className="d-flex gap-3 mt-4">
                                 <button
                                     type="submit"
-                                    className="btn text-white"
-                                    style={{
-                                        backgroundColor: "#4155c7",
-                                    }}
+                                    className="btn btn-primary text-white flex-grow-1"
                                     disabled={saving}
                                 >
                                     {saving
                                         ? "Saving..."
                                         : editingId
                                           ? "Save Changes"
-                                          : "Publish Announcement"}
+                                          : "Submit"}
                                 </button>
 
                                 <button
                                     type="button"
-                                    className="btn btn-outline-secondary"
+                                    className="btn btn-secondary text-white flex-grow-1"
+                                    // style={{ backgroundColor: "#ca5c5c" }}
                                     onClick={resetForm}
                                     disabled={saving}
                                 >
@@ -302,11 +319,21 @@ export default function Announcements() {
                         </form>
                     </div>
                 </div>
-            )}
-
-            {/* Announcements list - hidden while form is open */}
-            {!showForm && (
+            ) : (
                 <>
+                    {/* Search Bar Input */}
+                    <div className="row mb-3">
+                        <div className="col-md-4 col-sm-6">
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search announcements..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
                     {loading ? (
                         <div className="text-center py-5">
                             <div
@@ -314,26 +341,28 @@ export default function Announcements() {
                                 role="status"
                                 aria-label="Loading announcements"
                             />
-
                             <p className="text-muted mt-3">
                                 Loading announcements...
                             </p>
                         </div>
-                    ) : announcements.length === 0 ? (
+                    ) : filteredAnnouncements.length === 0 ? (
                         <div className="card border-0 shadow-sm">
                             <div className="card-body text-center py-5">
                                 <h5 className="fw-semibold">
-                                    No announcements yet
+                                    {announcements.length === 0
+                                        ? "No announcements yet"
+                                        : "No matching announcements found"}
                                 </h5>
-
                                 <p className="text-muted mb-0">
-                                    New community announcements will appear here.
+                                    {announcements.length === 0
+                                        ? "New community announcements will appear here."
+                                        : "Try a different search term."}
                                 </p>
                             </div>
                         </div>
                     ) : (
                         <div className="d-flex flex-column gap-3">
-                            {announcements.map((announcement) => (
+                            {filteredAnnouncements.map((announcement) => (
                                 <div
                                     className="card border-0 shadow-sm"
                                     key={announcement._id}
@@ -370,11 +399,10 @@ export default function Announcements() {
                                                 <div className="d-flex gap-2">
                                                     <button
                                                         type="button"
-                                                        className="btn btn-sm btn-outline-primary"
+                                                        className="btn btn-sm text-white px-3"
+                                                        style={{ backgroundColor: "#5f6368" }}
                                                         onClick={() =>
-                                                            handleEdit(
-                                                                announcement
-                                                            )
+                                                            handleEdit(announcement)
                                                         }
                                                     >
                                                         Edit
@@ -382,7 +410,8 @@ export default function Announcements() {
 
                                                     <button
                                                         type="button"
-                                                        className="btn btn-sm btn-outline-danger"
+                                                        className="btn btn-sm text-white px-3"
+                                                        style={{ backgroundColor: "#ca5c5c" }}
                                                         onClick={() => setDeleteTarget(announcement)}
                                                     >
                                                         Delete

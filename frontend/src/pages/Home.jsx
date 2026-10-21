@@ -96,9 +96,8 @@ export default function Home() {
 
                 <Link
                   to={action.to}
-                  className={`btn mt-auto align-self-start ${
-                    index === 0 ? "btn-primary" : "btn-outline-primary"
-                  }`}
+                  className="btn mt-auto align-self-start btn-outline-primary"
+
                 >
                   {action.button}
                 </Link>

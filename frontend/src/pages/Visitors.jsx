@@ -25,6 +25,7 @@ const Visitors = () => {
     const [error, setError] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     // Read the logged-in user from Auth.jsx and localStorage.
     const loggedInUser = getLoggedInUser();
@@ -56,7 +57,7 @@ const Visitors = () => {
 
     const canAddVisitor = isResident || isGuard;
     const canEditVisitor = isResident || isGuard;
-    const canDeleteVisitor = isResident || isAdmin || isGuard ;
+    const canDeleteVisitor = isResident || isAdmin || isGuard;
     const isReadOnly = isAdmin;
 
     // Keep the resident's assigned unit in the form.
@@ -138,6 +139,24 @@ const Visitors = () => {
 
     const displayedVisitors = isAdmin ? allVisitors : visitors;
 
+    // Filter visitors based on search term
+    const filteredVisitors = displayedVisitors.filter((visitor) => {
+        const term = searchTerm.toLowerCase();
+        const firstName = (visitor.first_name || "").toLowerCase();
+        const lastName = (visitor.last_name || "").toLowerCase();
+        const unitNumber = String(
+            visitor.unit_number || visitor.resident_id?.unit || ""
+        ).toLowerCase();
+        const vehicleInfo = (visitor.vehicle_info || "").toLowerCase();
+
+        return (
+            firstName.includes(term) ||
+            lastName.includes(term) ||
+            unitNumber.includes(term) ||
+            vehicleInfo.includes(term)
+        );
+    });
+
     // Handle form input changes.
     const onChange = (e) => {
         if (isReadOnly) return;
@@ -204,25 +223,25 @@ const Visitors = () => {
     };
 
     // Resident can edit their own visitor.
-   const handleEdit = (visitor) => {
-  if (!canEditVisitor) return;
-  const unitNumber = visitor.unit_number || getResidentUnit();
+    const handleEdit = (visitor) => {
+        if (!canEditVisitor) return;
+        const unitNumber = visitor.unit_number || getResidentUnit();
   
-  setFormData({
-    first_name: visitor.first_name || "",
-    last_name: visitor.last_name || "",
-    unit_number: unitNumber,
-    resident_id: visitor.resident_id?._id || visitor.resident_id || "",
-    expected_date: visitor.expected_date
-      ? String(visitor.expected_date).split("T")[0]
-      : new Date().toISOString().split("T")[0],
-    expected_time: visitor.expected_time || "10:00",
-    vehicle_info: visitor.vehicle_info || "",
-  });
-  setEditingId(visitor._id || visitor.id);
-  setError(null);
-  setShowForm(true);
-};
+        setFormData({
+            first_name: visitor.first_name || "",
+            last_name: visitor.last_name || "",
+            unit_number: unitNumber,
+            resident_id: visitor.resident_id?._id || visitor.resident_id || "",
+            expected_date: visitor.expected_date
+                ? String(visitor.expected_date).split("T")[0]
+                : new Date().toISOString().split("T")[0],
+            expected_time: visitor.expected_time || "10:00",
+            vehicle_info: visitor.vehicle_info || "",
+        });
+        setEditingId(visitor._id || visitor.id);
+        setError(null);
+        setShowForm(true);
+    };
 
     // Resident/Admin can delete visitors, subject to backend permissions.
     const confirmDelete = async () => {
@@ -307,73 +326,72 @@ const Visitors = () => {
 
     // Create or update a visitor.
     const onSubmit = async (e) => {
-  e.preventDefault();
-  if (loading) return;
-  if (editingId && !canEditVisitor) return;
-  if (!editingId && !canAddVisitor) return;
+        e.preventDefault();
+        if (loading) return;
+        if (editingId && !canEditVisitor) return;
+        if (!editingId && !canAddVisitor) return;
 
-  const unitNumber = isResident
-    ? getResidentUnit()
-    : String(formData.unit_number || "").trim();
+        const unitNumber = isResident
+            ? getResidentUnit()
+            : String(formData.unit_number || "").trim();
 
-  if (isResident && !unitNumber) {
-    setError("Your account does not have a unit number assigned.");
-    return;
-  }
+        if (isResident && !unitNumber) {
+            setError("Your account does not have a unit number assigned.");
+            return;
+        }
 
-  // Check unit number for Guards (without requiring resident_id)
-  if (isGuard && !unitNumber) {
-    setError("Please enter the resident's unit number.");
-    return;
-  }
+        if (isGuard && !unitNumber) {
+            setError("Please enter the resident's unit number.");
+            return;
+        }
 
-  if (!formData.first_name.trim() || !formData.last_name.trim()) {
-    setError("Please enter the visitor's first and last name.");
-    return;
-  }
+        if (!formData.first_name.trim() || !formData.last_name.trim()) {
+            setError("Please enter the visitor's first and last name.");
+            return;
+        }
 
-  if (!formData.expected_date || !formData.expected_time) {
-    setError("Please select the expected date and time.");
-    return;
-  }
+        if (!formData.expected_date || !formData.expected_time) {
+            setError("Please select the expected date and time.");
+            return;
+        }
 
-  setLoading(true);
-  setError(null);
+        setLoading(true);
+        setError(null);
 
-  try {
-    const submissionData = {
-      ...formData,
-      unit_number: unitNumber,
+        try {
+            const submissionData = {
+                ...formData,
+                unit_number: unitNumber,
+            };
+
+            if (editingId) {
+                await axios.put(
+                    `${API_URL}/api/visitors/${editingId}`,
+                    submissionData,
+                    { withCredentials: true }
+                );
+            } else {
+                await axios.post(
+                    `${API_URL}/api/visitors`,
+                    submissionData,
+                    { withCredentials: true }
+                );
+            }
+
+            await refreshVisitors();
+            setShowForm(false);
+            setFormData(initialForm);
+            setEditingId(null);
+        } catch (error) {
+            console.error("Error saving visitor:", error);
+            setError(
+                error.response?.data?.message ||
+                "Failed to save visitor. Please try again."
+            );
+        } finally {
+            setLoading(false);
+        }
     };
-
-    if (editingId) {
-      await axios.put(
-        `${API_URL}/api/visitors/${editingId}`,
-        submissionData,
-        { withCredentials: true }
-      );
-    } else {
-      await axios.post(
-        `${API_URL}/api/visitors`,
-        submissionData,
-        { withCredentials: true }
-      );
-    }
-
-    await refreshVisitors();
-    setShowForm(false);
-    setFormData(initialForm);
-    setEditingId(null);
-  } catch (error) {
-    console.error("Error saving visitor:", error);
-    setError(
-      error.response?.data?.message ||
-      "Failed to save visitor. Please try again."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
 
     const formatDateDisplay = (dateString) => {
         if (!dateString) return "—";
@@ -433,11 +451,8 @@ const Visitors = () => {
                     <button
                         type="button"
                         onClick={handleAddNew}
-                        className="btn text-white px-4 py-2"
-                        style={{
-                            backgroundColor: "#4155c7",
-                            borderRadius: "4px",
-                        }}
+                        className="btn btn-primary text-white px-4 py-2"
+
                     >
                         + Add a visitor
                     </button>
@@ -506,31 +521,7 @@ const Visitors = () => {
                                         readOnly={isReadOnly || isResident}
                                         required
                                     />
-
-                                    {/* {isResident && (
-                                        <small className="text-muted">
-                                            Your registered unit is filled in automatically.
-                                        </small>
-                                    )} */}
                                 </div>
-
-                                {/* {isGuard && (
-                                    <div className="col-12">
-                                        <label htmlFor="resident_id" className="form-label fw-semibold">
-                                            Resident Account ID
-                                        </label>
-                                        <input
-                                            id="resident_id"
-                                            type="text"
-                                            name="resident_id"
-                                            className="form-control"
-                                            value={formData.resident_id}
-                                            onChange={onChange}
-                                            placeholder="Enter the resident's MongoDB user ID"
-                                            required
-                                        />
-                                    </div>
-                                )} */}
 
                                 <div className="col-12">
                                     <label htmlFor="expected_date" className="form-label fw-semibold">
@@ -543,7 +534,7 @@ const Visitors = () => {
                                         className="form-control"
                                         value={formData.expected_date}
                                         onChange={onChange}
-                                        min={new Date().toISOString().split("T")[0]} // Prevent past dates
+                                        min={new Date().toISOString().split("T")[0]}
                                         readOnly={isReadOnly}
                                         required
                                     />
@@ -586,8 +577,7 @@ const Visitors = () => {
                                 {!isReadOnly && (
                                     <button
                                         type="submit"
-                                        className="btn text-white flex-grow-1"
-                                        style={{ backgroundColor: "#695e59" }}
+                                        className="btn btn-primary text-white flex-grow-1"
                                         disabled={loading}
                                     >
                                         {loading
@@ -600,8 +590,7 @@ const Visitors = () => {
 
                                 <button
                                     type="button"
-                                    className="btn text-white flex-grow-1"
-                                    style={{ backgroundColor: "#ca5c5c" }}
+                                    className="btn btn-secondary text-white flex-grow-1"
                                     onClick={closeForm}
                                     disabled={loading}
                                 >
@@ -612,132 +601,148 @@ const Visitors = () => {
                     </div>
                 </div>
             ) : (
-                <div className="table-responsive">
-                    <table className="table align-middle text-center">
-                        <thead style={{ backgroundColor: "#ede6e2" }}>
-                            <tr>
-                                <th className="py-3">Visitor Name</th>
-                                <th className="py-3">Unit Number</th>
-                                <th className="py-3">Date</th>
-                                <th className="py-3">Time</th>
-                                <th className="py-3">Vehicle Info</th>
-                                <th className="py-3">Status</th>
+                <>
+                    <div className="row mb-3">
+                        <div className="col-md-4 col-sm-6">
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search by name, unit, or vehicle..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
 
-                                {(canEditVisitor || canDeleteVisitor || isAdmin) && (
-                                    <th className="py-3">Action</th>
-                                )}
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {displayedVisitors.length === 0 ? (
+                    <div className="table-responsive">
+                        <table className="table align-middle text-center">
+                            <thead style={{ backgroundColor: "#ede6e2" }}>
                                 <tr>
-                                    <td
-                                        colSpan={
-                                            6 +
-                                            (canEditVisitor || canDeleteVisitor || isAdmin ? 1 : 0)
-                                        }
-                                        className="py-4 text-muted"
-                                    >
-                                        No visitors registered yet.
-                                    </td>
+                                    <th className="py-3">Visitor Name</th>
+                                    <th className="py-3">Unit Number</th>
+                                    <th className="py-3">Date</th>
+                                    <th className="py-3">Time</th>
+                                    <th className="py-3">Vehicle Info</th>
+                                    <th className="py-3">Status</th>
+
+                                    {(canEditVisitor || canDeleteVisitor || isAdmin) && (
+                                        <th className="py-3">Action</th>
+                                    )}
                                 </tr>
-                            ) : (
-                                displayedVisitors.map((visitor) => (
-                                    <tr key={visitor._id || visitor.id}>
-                                        <td>
-                                            {visitor.first_name} {visitor.last_name}
+                            </thead>
+
+                            <tbody>
+                                {filteredVisitors.length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan={
+                                                6 +
+                                                (canEditVisitor || canDeleteVisitor || isAdmin ? 1 : 0)
+                                            }
+                                            className="py-4 text-muted"
+                                        >
+                                            {displayedVisitors.length === 0
+                                                ? "No visitors registered yet."
+                                                : "No matching visitors found."}
                                         </td>
-
-                                        <td>
-                                            {visitor.unit_number ||
-                                                (isResident ? residentUnitNumber : "") ||
-                                                visitor.resident_id?.unit ||
-                                                "—"}
-                                        </td>
-
-                                        <td>
-                                            {formatDateDisplay(visitor.expected_date)}
-                                        </td>
-
-                                        <td>{visitor.expected_time || "—"}</td>
-
-                                        <td style={{ whiteSpace: "pre-line" }}>
-                                            {visitor.vehicle_info || "—"}
-                                        </td>
-
-                                        <td>
-                                            {isGuard ? (
-                                                <select
-                                                    className="form-select form-select-sm"
-                                                    value={visitor.status || "Pending"}
-                                                    onChange={(e) =>
-                                                        handleStatusChange(
-                                                            visitor._id || visitor.id,
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                    aria-label={`Update status for ${visitor.first_name} ${visitor.last_name}`}
-                                                    style={{ minWidth: "140px" }}
-                                                >
-                                                    <option value="Pending">Pending</option>
-                                                    <option value="Checked-In">Checked-In</option>
-                                                    <option value="Checked-Out">Checked-Out</option>
-                                                    <option value="Cancelled">Cancelled</option>
-                                                </select>
-                                            ) : (
-                                                <span
-                                                    className={`badge px-3 py-2 rounded-pill ${getStatusBadge(visitor.status)}`}
-                                                >
-                                                    {visitor.status || "Pending"}
-                                                </span>
-                                            )}
-                                        </td>
-
-                                        {(canEditVisitor || canDeleteVisitor || isAdmin) && (
-                                            <td>
-                                                <div className="d-flex justify-content-center gap-2">
-                                                    {isAdmin && (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm text-white px-3"
-                                                            style={{ backgroundColor: "#4155c7" }}
-                                                            onClick={() => handleView(visitor)}
-                                                        >
-                                                            View
-                                                        </button>
-                                                    )}
-
-                                                    {canEditVisitor && (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm text-white px-3"
-                                                            style={{ backgroundColor: "#5f6368" }}
-                                                            onClick={() => handleEdit(visitor)}
-                                                        >
-                                                            Edit
-                                                        </button>
-                                                    )}
-
-                                                    {canDeleteVisitor && (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm text-white px-3"
-                                                            style={{ backgroundColor: "#ca5c5c" }}
-                                                            onClick={() => setDeleteTarget(visitor)}
-                                                        >
-                                                            Delete
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        )}
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                ) : (
+                                    filteredVisitors.map((visitor) => (
+                                        <tr key={visitor._id || visitor.id}>
+                                            <td className="fw-semibold">
+                                                {visitor.first_name} {visitor.last_name}
+                                            </td>
+
+                                            <td>
+                                                {visitor.unit_number ||
+                                                    (isResident ? residentUnitNumber : "") ||
+                                                    visitor.resident_id?.unit ||
+                                                    "—"}
+                                            </td>
+
+                                            <td>
+                                                {formatDateDisplay(visitor.expected_date)}
+                                            </td>
+
+                                            <td>{visitor.expected_time || "—"}</td>
+
+                                            <td style={{ whiteSpace: "pre-line" }}>
+                                                {visitor.vehicle_info || "—"}
+                                            </td>
+
+                                            <td>
+                                                {isGuard ? (
+                                                    <select
+                                                        className="form-select form-select-sm"
+                                                        value={visitor.status || "Pending"}
+                                                        onChange={(e) =>
+                                                            handleStatusChange(
+                                                                visitor._id || visitor.id,
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        aria-label={`Update status for ${visitor.first_name} ${visitor.last_name}`}
+                                                        style={{ minWidth: "140px" }}
+                                                    >
+                                                        <option value="Pending">Pending</option>
+                                                        <option value="Checked-In">Checked-In</option>
+                                                        <option value="Checked-Out">Checked-Out</option>
+                                                        <option value="Cancelled">Cancelled</option>
+                                                    </select>
+                                                ) : (
+                                                    <span
+                                                        className={`badge px-3 py-2 rounded-pill ${getStatusBadge(visitor.status)}`}
+                                                    >
+                                                        {visitor.status || "Pending"}
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            {(canEditVisitor || canDeleteVisitor || isAdmin) && (
+                                                <td>
+                                                    <div className="d-flex justify-content-center gap-2">
+                                                        {isAdmin && (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-primary btn-sm text-white px-3"
+                                                                // style={{ backgroundColor: "#4155c7" }}
+                                                                onClick={() => handleView(visitor)}
+                                                            >
+                                                                View
+                                                            </button>
+                                                        )}
+
+                                                        {canEditVisitor && (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm text-white px-3"
+                                                                style={{ backgroundColor: "#5f6368" }}
+                                                                onClick={() => handleEdit(visitor)}
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                        )}
+
+                                                        {canDeleteVisitor && (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm text-white px-3"
+                                                                style={{ backgroundColor: "#ca5c5c" }}
+                                                                onClick={() => setDeleteTarget(visitor)}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
 
             <ConfirmModal
