@@ -8,20 +8,19 @@ import maintenanceRoutes from "./routes/maintenanceRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
-
 import authRoutes from "./routes/authRoutes.js";
 
 dotenv.config();
 
 const app = express();
 
-// Set allowed origins for production/development clients
+// Set allowed origins for production/development clients (Added https:// to Netlify)
 const allowedOrigins = [
   "http://localhost:5001",
   "http://localhost:5173",
   "http://localhost:5174",
   "https://safeentry-nu.vercel.app",
-  "safeentry4home.netlify.app",
+  "https://safeentry4home.netlify.app", // Fixed missing protocol
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
@@ -29,20 +28,14 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like Postman or mobile apps) or listed origins
-      if(!origin) return callback(null, true);
-      if(allowedOrigins.indexOf(origin) === -1) {
-        return callback(null,true);
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
       }
-      return callback(null, true);
+      // If you want strict security, change the below to callback(new Error("Not allowed by CORS"))
+      return callback(null, true); 
     },
-  //     if (!origin || allowedOrigins.includes(origin)) {
-  //       return callback(null, true);
-  //     }
-  //     return callback(null, true); // Permissive during local development
-  //   },
     credentials: true, // Allow cookies to be sent with requests
-  }),
+  })
 );
 
 // Middleware
@@ -55,25 +48,15 @@ app.use((req, res, next) => {
   next();
 });
 
-
-//  Routes
+// Routes
 app.use("/api/auth", authRoutes);
-// Visitor routes
 app.use("/api/visitors", visitorRoutes);
-
-// Maintenance routes
 app.use("/api/maintenance", maintenanceRoutes);
-
-//Announcement routes
 app.use("/api/announcements", announcementRoutes);
-
-//user routes
 app.use("/api/users", userRoutes);
-
-//delivery routes
 app.use("/api/deliveries", deliveryRoutes);
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000; // Added fallback port
 
 // Database Connection & Server Start
 mongoose
