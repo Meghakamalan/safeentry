@@ -20,6 +20,8 @@ const allowedOrigins = [
   "http://localhost:5001",
   "http://localhost:5173",
   "http://localhost:5174",
+  "https://safeentry-nu.vercel.app",
+  "safeentry4home.netlify.app",
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
