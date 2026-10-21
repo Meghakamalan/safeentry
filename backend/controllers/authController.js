@@ -5,8 +5,8 @@ import jwt from "jsonwebtoken";
 // Helper for cookie options to maintain consistency across login & logout
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",// falls in local development
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  secure: process.env.NODE_ENV === "production", // Required true when sameSite is 'none'
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Must be "none" for cross-domain requests
 };
 
 // Register
