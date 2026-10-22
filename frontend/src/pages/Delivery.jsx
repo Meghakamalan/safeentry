@@ -276,7 +276,7 @@ export default function Delivery() {
                                         id="resident_unit"
                                         name="resident_unit"
                                         className="form-control"
-                                        placeholder="e.g. 1205"
+                                        placeholder="e.g. 120"
                                         value={formData.resident_unit}
                                         onChange={handleChange}
                                         required
